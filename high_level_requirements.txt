@@ -1,0 +1,77 @@
+Vision:
+
+An RPG companion application that can model character sheets for any RPG system with an easy to use interface allowing players and game Masters to have an electronic version of their character sheets for easy access and editing during RPG gaming sessions.
+
+High-level requirements for MVP:
+
+Character sheet templates capture the structure of the chosen RPG system and use JSON format for easy text manipulation.
+
+Character sheet templates capture the relationship between core statistics and dependent statistics. For example, the template captures how users statistics contribute to bonuses. These relationships are defined by the RPG system for the specific character sheet.
+
+The user interface allows the user to create a new character by creating an instance of the template and allowing the user to modify the core values. The interface gives the player the option to have the application role virtual dice or allow the user to fill in the values manually rolling physical dice.
+
+The application allows users to save their characters.
+
+The application allows users to load previously created characters.
+
+The application allows a game master to create NPCs and save them to an NPC library.
+
+The application allows a game master to create a campaign that contains encounters and each encounter contains the enemy character sheets.
+
+The application has a game master interface to help organize the campaign and encounters.
+
+The application also allows players to organize their characters by campaign and system.
+
+The game master encounter interface allows the game master to easily select a monster or NPC character sheet that is part of the current encounter.
+
+The game master encounter interface also allows selecting player character sheets that are part of the current campaign.
+
+The application supports templates that describe the visual look of the character sheet so that they can match the RPG system used by the current campaign.
+
+The game master encounter interface allows the game master to assign initiative to the participants of the encounter (monsters, NPCs and player characters) and tracks whose turn is currently active.
+
+The player and game master interface allow users to roll dice combinations of their choosing at any time as an alternative to rolling physical dice if they choose.
+
+Users can send each other character sheets and campaigns to synchronize their libraries and campaigns.
+
+Users can create and save characters, NPCS and monsters generically under the RPG system to create a library of available character sheets.
+
+When creating a campaign users may create a brand-new character sheet of any type to save with the campaign or pull from the library for the matching RPG system of the campaign.
+
+A character sheet supports containing the items and equipment that a character currently has, allows the user to select which items and equipment are currently worn/equipped and automatically applies any bonuses.
+
+A character sheet supports allowing the user to expend a one-time use item and automatically applies the effects of that item. After the one-time use, the item amount is decremented and removed if it is the last one.
+
+A character sheet supports tracking any active effects and their temporary modifications to the applicable statistics.
+
+The application saves character sheets and a user configured base directory and organizes by:
+RPG_systems/
+  <System_name>/
+    templates/
+	NPCs/
+    beastiery/
+	characters/
+	equipment_items/
+Campaigns/
+  Campaign_name/
+    RPG_system.txt
+    characters/
+    NPCs/
+    beastiery/
+    encounters/
+
+Design considerations:
+
+Optimal reuse of code and visual components.
+
+The game master and regular player modes should reuse functionality and user interface as much as possible.
+
+The last save of a character should be put in UTC Internet time to assist with importing of conflicting character sheets.
+
+When overwriting an existing character sheet with a newer one, the old character sheet should be saved as backup to make rollback easy and painless
+
+Technology:
+
+The application will start as an electron application with react
+
+Use of database or flat files is an open question
