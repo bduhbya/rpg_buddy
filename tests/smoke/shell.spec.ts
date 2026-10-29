@@ -1,182 +1,196 @@
-import { test, expect, chromium, _electron as electron } from '@playwright/test';
-import type { Browser, ElectronApplication, Page } from '@playwright/test';
-import { spawn, spawnSync } from 'node:child_process';
-import type { ChildProcess } from 'node:child_process';
-import { createServer } from 'node:net';
-import { writeFile } from 'node:fs/promises';
+import { expect } from '@playwright/test';
 import path from 'node:path';
+import { test } from './fixtures/desktop-shell';
 
-async function unusedPort(): Promise<number> {
-  const server = createServer();
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
+test('startup displays application information and reloads', async ({
+  shell: { page, application },
+}) => {
+  // Check first startup, then reload with listeners active before any renderer scripts run.
+  await expect(page.getByRole('heading', { name: 'RPG Buddy', exact: true })).toBeVisible({
+    timeout: 30_000,
   });
-  const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('No debugging port available.');
-  const port = address.port;
-  await new Promise<void>((resolve, reject) =>
-    server.close((error) => (error ? reject(error) : resolve())),
-  );
-  return port;
-}
-
-function stopProcessTree(child: ChildProcess): void {
-  if (!child.pid || child.exitCode !== null) return;
-  if (process.platform === 'win32') {
-    spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true });
-  } else {
-    // The development child owns its process group on Unix.
-    process.kill(-child.pid, 'SIGTERM');
+  await page.reload();
+  await expect(page).toHaveTitle('RPG Buddy');
+  await expect(page.getByRole('main')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('RPG Buddy');
+  await expect(page.getByText('RPG Buddy is ready.', { exact: true })).toBeVisible();
+  expect(await page.locator('html').getAttribute('lang')).toBe('en');
+  const information = page.getByRole('region', { name: 'Application information' });
+  await expect(information.getByText('0.1.0', { exact: true })).toBeVisible();
+  const info = await page.evaluate(() => window.rpgBuddy.getApplicationInfo());
+  expect(info.ok).toBe(true);
+  if (!info.ok) throw new Error('Application info request failed');
+  expect(info.info.name).toBe('RPG Buddy');
+  for (const version of [info.info.electron, info.info.chrome, info.info.node]) {
+    expect(version).toMatch(/^\d+\.\d+/);
+    await expect(information.getByText(version, { exact: true })).toBeVisible();
   }
-}
-
-test('desktop shell starts, renders and remains readable', async ({}, testInfo) => {
-  let development: ChildProcess | undefined;
-  let browser: Browser | undefined;
-  let application: ElectronApplication | undefined;
-  let page: Page | undefined;
-  let output = '';
-  const rendererErrors: string[] = [];
-  const assetErrors: string[] = [];
-  const env: Record<string, string> = Object.fromEntries(
-    Object.entries(process.env).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined,
-    ),
-  );
-  delete env.ELECTRON_RUN_AS_NODE;
-
-  try {
-    if (testInfo.project.name === 'development') {
-      const port = await unusedPort();
-      development = spawn(
-        process.execPath,
-        [
-          'node_modules/@electron-forge/cli/dist/electron-forge-start.js',
-          '--',
-          `--remote-debugging-port=${port}`,
-          '--remote-debugging-address=127.0.0.1',
-        ],
-        {
-          env,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          windowsHide: true,
-          detached: process.platform !== 'win32',
-        },
-      );
-      development.on('error', (error) => {
-        output += error.stack;
-      });
-      development.stdout?.on('data', (data: Buffer) => {
-        output += data.toString();
-      });
-      development.stderr?.on('data', (data: Buffer) => {
-        output += data.toString();
-      });
-      const endpoint = `http://127.0.0.1:${port}`;
-      await expect
-        .poll(
-          async () => {
-            if (development?.exitCode !== null) throw new Error(`Forge exited early: ${output}`);
-            try {
-              return (await fetch(`${endpoint}/json/version`)).ok;
-            } catch {
-              return false;
-            }
-          },
-          { timeout: 60_000, message: 'Forge must launch a debuggable development window' },
-        )
-        .toBe(true);
-      browser = await chromium.connectOverCDP(endpoint);
-      page = browser.contexts()[0]?.pages()[0];
-      if (!page) throw new Error('Forge did not create a renderer window.');
-      expect(page.url()).toMatch(/^http:\/\/(?:127\.0\.0\.1|localhost):5173/);
-    } else {
-      const executablePath = path.resolve(
-        'out',
-        `RPG Buddy-${process.platform}-${process.arch}`,
-        process.platform === 'win32' ? 'RPG Buddy.exe' : 'RPG Buddy',
-      );
-      application = await electron.launch({ executablePath, env });
-      application.process().stdout?.on('data', (data: Buffer) => {
-        output += data.toString();
-      });
-      application.process().stderr?.on('data', (data: Buffer) => {
-        output += data.toString();
-      });
-      page = await application.firstWindow();
-      expect(page.url()).toMatch(/^file:/);
-      expect(await application.evaluate(({ app }) => app.isPackaged)).toBe(true);
-    }
-
-    page.on('pageerror', (error) => rendererErrors.push(error.message));
-    page.on('console', (message) => {
-      if (message.type() === 'error') rendererErrors.push(message.text());
-    });
-    page.on('requestfailed', (request) =>
-      assetErrors.push(`${request.url()}: ${request.failure()?.errorText}`),
-    );
-    page.on('response', (response) => {
-      if (response.status() >= 400) assetErrors.push(`${response.status()} ${response.url()}`);
-    });
-    // Check first startup, then reload with listeners active before any renderer scripts run.
-    await expect(page.getByRole('heading', { name: 'RPG Buddy', exact: true })).toBeVisible({
-      timeout: 30_000,
-    });
-    await page.reload();
-    await expect(page).toHaveTitle('RPG Buddy');
-    await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('RPG Buddy');
-    await expect(page.getByText('RPG Buddy is ready.', { exact: true })).toBeVisible();
-    expect(await page.locator('html').getAttribute('lang')).toBe('en');
-    expect(
-      await page.evaluate(() => ({
-        require: typeof (globalThis as unknown as Record<string, unknown>).require,
-        process: typeof (globalThis as unknown as Record<string, unknown>).process,
+  if (application) {
+    expect(info.info).toEqual(
+      await application.evaluate(({ app }) => ({
+        name: app.getName(),
+        version: app.getVersion(),
+        electron: process.versions.electron,
+        chrome: process.versions.chrome,
+        node: process.versions.node,
       })),
-    ).toEqual({ require: 'undefined', process: 'undefined' });
-
-    await page.setViewportSize({ width: 360, height: 320 });
-    await page.evaluate(() => {
-      document.documentElement.style.fontSize = '200%';
-    });
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-      true,
     );
-    await page.getByText('RPG Buddy is ready.', { exact: true }).scrollIntoViewIfNeeded();
-    await expect(page.getByText('RPG Buddy is ready.', { exact: true })).toBeInViewport();
-    await page.screenshot({ path: testInfo.outputPath('shell.png'), fullPage: true });
-    expect(rendererErrors).toEqual([]);
-    expect(assetErrors).toEqual([]);
-    expect(output).not.toMatch(
-      /RPG Buddy startup failed|Uncaught|Error launching app|Unable to find Electron app/i,
-    );
-
-    if (development && process.platform !== 'darwin') {
-      await page.close();
-      await expect.poll(() => development?.exitCode, { timeout: 10_000 }).toBe(0);
-    }
-    if (application && process.platform !== 'darwin') {
-      const exited = new Promise<number | null>((resolve) =>
-        application!.process().once('exit', resolve),
-      );
-      await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.close());
-      expect(await exited).toBe(0);
-      application = undefined;
-    }
-  } finally {
-    if (application) await application.close();
-    if (browser) await browser.close();
-    if (development) stopProcessTree(development);
-    await writeFile(
-      testInfo.outputPath('diagnostics.json'),
-      JSON.stringify({ output, rendererErrors, assetErrors }, null, 2),
-    );
-    await testInfo.attach('process-output', { body: output, contentType: 'text/plain' });
-    await testInfo.attach('renderer-errors', {
-      body: JSON.stringify({ rendererErrors, assetErrors }),
-      contentType: 'application/json',
-    });
   }
+});
+
+test('bridge isolates child frames and blocks navigation and popups', async ({
+  shell: { page },
+}) => {
+  expect(
+    await page.evaluate(() => ({
+      require: typeof (globalThis as unknown as Record<string, unknown>).require,
+      process: typeof (globalThis as unknown as Record<string, unknown>).process,
+    })),
+  ).toEqual({ require: 'undefined', process: 'undefined' });
+
+  expect(await page.evaluate(() => Object.keys(window.rpgBuddy))).toEqual(['getApplicationInfo']);
+  await page.evaluate(() => {
+    const iframe = document.createElement('iframe');
+    iframe.id = 'boundary-frame';
+    document.body.append(iframe);
+  });
+  const child = page.frames().find((frame) => frame !== page.mainFrame());
+  expect(child).toBeDefined();
+  expect(await child!.evaluate(() => typeof window.rpgBuddy)).toBe('undefined');
+  await page.locator('#boundary-frame').evaluate((element) => element.remove());
+  expect(await page.evaluate(() => window.open('about:blank'))).toBeNull();
+  const trustedURL = page.url();
+  const navigationSession = await page.context().newCDPSession(page);
+  let unexpectedRequest = false;
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://example.invalid/')) unexpectedRequest = true;
+  });
+  await page.evaluate(() => {
+    location.href = 'https://example.invalid/unexpected';
+  });
+  // Electron cancels this navigation before a network request. Chromium can leave
+  // Playwright's navigation barrier pending; clear that barrier after checking
+  // the live document through CDP, which does not wait for a navigation commit.
+  const documentURL = await navigationSession.send('Runtime.evaluate', {
+    expression: 'location.href',
+    returnByValue: true,
+  });
+  expect(documentURL.result.value).toBe(trustedURL);
+  expect(unexpectedRequest).toBe(false);
+  await navigationSession.send('Page.stopLoading');
+  await navigationSession.detach();
+  await page.reload();
+  await expect(
+    page
+      .getByRole('region', { name: 'Application information' })
+      .getByText('0.1.0', { exact: true }),
+  ).toBeVisible();
+});
+
+test('shell remains readable at narrow width and doubled text', async ({
+  shell: { page },
+}, testInfo) => {
+  await expect(
+    page
+      .getByRole('region', { name: 'Application information' })
+      .getByText('0.1.0', { exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 360, height: 320 });
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%';
+  });
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByText('RPG Buddy is ready.', { exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByText('RPG Buddy is ready.', { exact: true })).toBeInViewport();
+  await page.screenshot({ path: testInfo.outputPath('shell.png'), fullPage: true });
+});
+
+test.describe('packaged IPC', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'packaged', 'Requires packaged main-process automation');
+  });
+
+  test('rejects foreign senders and malformed requests without disrupting information', async ({
+    shell: { page, application },
+  }) => {
+    if (!application) throw new Error('Packaged application is required.');
+    const information = page.getByRole('region', { name: 'Application information' });
+    const rejected = await application.evaluate(async ({ BrowserWindow }, preload) => {
+      const probe = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          preload,
+          contextIsolation: true,
+          sandbox: true,
+          nodeIntegration: false,
+        },
+      });
+      try {
+        await probe.loadURL('about:blank');
+        return await probe.webContents.executeJavaScript(
+          'window.boundaryProbe.invoke({ apiVersion: 1 })',
+        );
+      } finally {
+        probe.destroy();
+      }
+    }, path.resolve('tests/fixtures/boundary-probe.cjs'));
+    expect(rejected).toEqual({ ok: false, code: 'FORBIDDEN' });
+    // Install an adversarial test-only preload through the automation-owned
+    // main process. The shipped bridge never accepts arbitrary IPC payloads.
+    const probeId = await application.evaluate(
+      ({ BrowserWindow }, filePath) =>
+        BrowserWindow.getAllWindows()[0]!.webContents.session.registerPreloadScript({
+          type: 'frame',
+          filePath,
+        }),
+      path.resolve('tests/fixtures/boundary-probe.cjs'),
+    );
+    try {
+      await page.reload();
+      const replies = await page.evaluate(async () => {
+        const probe = (
+          window as unknown as { boundaryProbe: { invoke(...args: unknown[]): Promise<unknown> } }
+        ).boundaryProbe;
+        const results = [];
+        for (const args of [
+          [],
+          [null],
+          [{ apiVersion: 2 }],
+          [{ apiVersion: 1, extra: true }],
+          [{ apiVersion: 1 }, 'extra'],
+        ]) {
+          results.push(await probe.invoke(...args));
+        }
+        return results;
+      });
+      expect(replies).toEqual(
+        Array.from({ length: 5 }, () => ({ ok: false, code: 'INVALID_REQUEST' })),
+      );
+      await expect(information.getByText('0.1.0', { exact: true })).toBeVisible();
+    } finally {
+      await application.evaluate(
+        ({ BrowserWindow }, id) =>
+          BrowserWindow.getAllWindows()[0]!.webContents.session.unregisterPreloadScript(id),
+        probeId,
+      );
+    }
+  });
+
+  test('shows accessible failure feedback when the handler is unavailable', async ({
+    shell: { page, application },
+  }) => {
+    if (!application) throw new Error('Packaged application is required.');
+    await page.setViewportSize({ width: 360, height: 320 });
+    await application.evaluate(({ ipcMain }) => ipcMain.removeHandler('application:get-info'));
+    await page.reload();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Application information is unavailable. Reload to try again.',
+    );
+    expect(
+      await page
+        .getByRole('alert')
+        .evaluate((element) => element.scrollWidth <= document.documentElement.clientWidth),
+    ).toBe(true);
+  });
 });
