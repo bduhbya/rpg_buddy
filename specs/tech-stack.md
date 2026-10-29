@@ -18,6 +18,14 @@ The React renderer presents sheets and validation feedback. It does not access t
 
 The domain model, validation, and calculation engine are independent of React, Electron, and filesystem APIs. The persistence layer converts validated domain data to and from files. Both player and game master workflows will use these shared layers.
 
+## Diagnostic logging
+
+Introduce one shared, typed logging API in Roadmap Phase 5, after the secure application boundary and before domain implementation. The main process owns serialized file writes and rotation; renderer logging crosses a narrow runtime-validated IPC endpoint. Domain modules depend only on an injectable, framework-independent logging interface, with a no-op/test implementation available. Do not import Electron, filesystem APIs or the concrete logging backend into the domain. Process-local facades share one logging service rather than constructing unrelated logger instances.
+
+Persist structured UTF-8 JSON Lines under the application user-data logs directory; render readable text in the development console using the same sanitized events. Default to info severity with explicit opt-in debug. Include UTC timestamps, stable event names, application/runtime versions, process identity, session/operation correlation and sanitized errors/stacks. No automatic telemetry or uploads. Users manually collect local files using documented support instructions.
+
+Rotate before exceeding 5 MiB per file: one active file plus four archives, with at most 25 MiB of log content in total across concurrent application launches. Bound records and queues, coordinate writers, preserve valid records on restart, and prevent logging failures from breaking ordinary application operations. Best-effort fatal error recording must preserve appropriate process termination; abrupt crashes cannot guarantee final-record delivery. Exclude character/campaign contents, credentials and personal paths by default. The [Diagnostic Logging Plan Update](2026-10-29_diagnostic-logging-plan-update/plan.md) records this roadmap addition. Generate detailed implementation requirements, backend decisions and validation procedures when Phase 5 is undertaken.
+
 ## System definitions and templates
 
 A system manifest identifies the RPG system, edition/source metadata, and available templates and shared rules. Stable identifiers connect these documents; filenames and display names are not entity identity.
