@@ -13,10 +13,7 @@
       "env": {
         "PYTHONPATH": ""
       },
-      "pythonArgs": [
-        "-X",
-        "frozen_modules=off"
-      ]
+      "pythonArgs": ["-X", "frozen_modules=off"]
     }
   ]
 }

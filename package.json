@@ -1,0 +1,47 @@
+{
+  "name": "rpg-buddy",
+  "productName": "RPG Buddy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A portable RPG companion for players and game masters",
+  "author": "RPG Buddy contributors",
+  "main": "./.webpack/main/index.cjs",
+  "engines": {
+    "node": ">=26.13.0",
+    "npm": ">=12.2.1"
+  },
+  "packageManager": "npm@12.2.1",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "typecheck": "tsc --noEmit",
+    "test:smoke:dev": "playwright test --project=development",
+    "test:smoke:package": "playwright test --project=packaged",
+    "test:smoke": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@babel/core": "8.0.9",
+    "@babel/preset-react": "8.0.1",
+    "@babel/preset-typescript": "8.0.7",
+    "@electron-forge/cli": "8.0.1",
+    "@electron-forge/plugin-webpack": "8.0.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "babel-loader": "10.1.1",
+    "css-loader": "7.1.5",
+    "electron": "45.1.0",
+    "prettier": "3.9.10",
+    "style-loader": "4.0.0",
+    "typescript": "7.0.2",
+    "webpack": "5.112.2"
+  },
+  "type": "module"
+}

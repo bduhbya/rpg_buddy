@@ -4,12 +4,12 @@
 
 Original checks were defined before initial schema/example implementation. Revised R-V checks were defined before implementing the user-authorized shared-creature/features revision. The table below records current results; historical checks are summarized separately.
 
-| ID | Requirements | Method and expected result | Status |
-| --- | --- | --- | --- |
-| R-V1 | DC-1, DC-2, DC-7 | Check Draft 2020-12 schemas with FormatChecker; validate one shared template, manifest and both instances; resolve exact references and entityType independently of role. | Passed |
-| R-V2 | DC-3, DC-5, DC-8 | Preserve C1/M1/C2/M2/B1 numeric vectors; check add/remove, simultaneous strength/toughness effects, role/name independence and final-value dependency propagation. | Passed |
+| ID   | Requirements     | Method and expected result                                                                                                                                                                                                 | Status |
+| ---- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| R-V1 | DC-1, DC-2, DC-7 | Check Draft 2020-12 schemas with FormatChecker; validate one shared template, manifest and both instances; resolve exact references and entityType independently of role.                                                  | Passed |
+| R-V2 | DC-3, DC-5, DC-8 | Preserve C1/M1/C2/M2/B1 numeric vectors; check add/remove, simultaneous strength/toughness effects, role/name independence and final-value dependency propagation.                                                         | Passed |
 | R-V3 | DC-4, DC-7, DC-8 | Reject unknown/input/undeclared targets, invalid factors, duplicate IDs and conflicting effects; accept custom careers/entries and prose without automatic effects. Retain original structural/dependency negative checks. | Passed |
-| R-V4 | DC-6 | Inspect constitution/contract/schema/fixture consistency, retired references, three-file phase folder and whitespace; run the reproducible harness. | Passed |
+| R-V4 | DC-6             | Inspect constitution/contract/schema/fixture consistency, retired references, three-file phase folder and whitespace; run the reproducible harness.                                                                        | Passed |
 
 ## Reproduction
 

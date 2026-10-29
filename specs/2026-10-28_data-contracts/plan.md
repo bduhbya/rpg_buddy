@@ -52,6 +52,7 @@ Base-template naming correction: changed defaultDisplayName from Example Creatur
 ## Zero defaults and verification readability update
 
 User requested zero for every base attribute and a human-readable Python verifier.
+
 - [x] Z1: Set all nine template input defaults to zero; keep worked instance values separate.
 - [x] Z2: Replace dense global/lambda-based checks with named verification methods, descriptive test cases, explicit expected statistics and readable output; retain existing positive/negative coverage.
 - [x] Z3: Run all checks, including a fresh zero-default creature and inherited rule examples, and update evidence and reproduction guidance.
@@ -73,6 +74,7 @@ VS Code debugging setup complete: isolated interpreter/dependencies prepared, al
 ## Typed verifier modules - 2026-10-29
 
 User authorized a multi-file typed refactor preserving the existing CLI, focused-test selectors and VS Code debug configuration.
+
 - [x] T1: Extract typed document shapes, JSON/numeric helpers, semantic validation and bounded expression tracing into verification/ modules.
 - [x] T2: Split the existing 22 tests into focused contract/calculation/feature modules with shared fixture helpers; retain the ContractTests selector and script entry point.
 - [x] T3: Document the contract-verification boundary and future TypeScript conformance handoff; preserve explicit independent expected results.

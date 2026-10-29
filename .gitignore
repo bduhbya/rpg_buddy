@@ -1,3 +1,11 @@
 .venv-contracts/
 __pycache__/
 .mypy_cache/
+node_modules/
+.webpack/
+out/
+test-results/
+playwright-report/
+
+# Obsolete generated output from the earlier Phase 3 build; unused by Webpack.
+.vite/

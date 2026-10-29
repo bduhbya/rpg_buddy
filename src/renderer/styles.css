@@ -1,0 +1,36 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #252d32;
+  background: #f5f3ef;
+  font-synthesis: none;
+  line-height: 1.6;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 48rem;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 5vw, 4rem);
+  overflow-wrap: anywhere;
+}
+h1 {
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
+  line-height: 1.15;
+  margin-block: 0.5em;
+}
+p {
+  max-width: 36rem;
+}
+.eyebrow {
+  color: #48555c;
+  font-weight: 600;
+}
+.message {
+  font-size: 1.25rem;
+  font-weight: 600;
+}

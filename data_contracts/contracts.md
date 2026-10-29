@@ -62,15 +62,15 @@ The Ork example carries a trait entry for Unnatural Toughness (x2), citing Phase
 
 Each node is one of the closed schema alternatives. No scripts, function names, imports, property traversal, external references or executable strings exist.
 
-| op | Arguments | Input / output | Semantics |
-| --- | --- | --- | --- |
-| constant | value | finite number / number | Literal value |
-| field | id | declared field / number | Exact input or derived field reference |
-| divide | left, right | number, number / number | Division; zero divisor is an error |
-| multiply | left, right | number, number / number | Multiplication |
-| floor | value | number / number | Round toward negative infinity |
-| equal | left, right | number, number / boolean | Exact numeric equality; no coercion |
-| if | condition, then, else | boolean, number, number / number | Evaluate only the selected branch |
+| op       | Arguments             | Input / output                   | Semantics                              |
+| -------- | --------------------- | -------------------------------- | -------------------------------------- |
+| constant | value                 | finite number / number           | Literal value                          |
+| field    | id                    | declared field / number          | Exact input or derived field reference |
+| divide   | left, right           | number, number / number          | Division; zero divisor is an error     |
+| multiply | left, right           | number, number / number          | Multiplication                         |
+| floor    | value                 | number / number                  | Round toward negative infinity         |
+| equal    | left, right           | number, number / boolean         | Exact numeric equality; no coercion    |
+| if       | condition, then, else | boolean, number, number / number | Evaluate only the selected branch      |
 
 Both branches are structurally/type checked and both contribute dependencies, even when unselected. All references must exist in the same template. All nodes are checked before evaluation; reject cycles, including self-references and cycles in unselected branches. Topologically evaluate derived fields after inputs. Boolean outputs are permitted only as if conditions; no boolean input fields. There is no implicit default for a missing field.
 
@@ -82,27 +82,27 @@ The shared base creature template encodes floor(score/10) and explicit zero-AB m
 
 A diagnostic is an object with required `code`, `document` (logical identifier, not arbitrary filesystem authority), `pointer` (RFC 6901 JSON Pointer, empty for document root), and plain-language `message`; optional `related` is an array of `{document, pointer}` objects. Escape `~` and `/` in pointer segments. Return a nonempty diagnostics array on failure; do not return a partially valid replacement as success. Messages should identify expected/actual values where useful without exposing unrelated file contents. Consumers branch on code, never message text.
 
-| code | Use |
-| --- | --- |
-| INVALID_JSON | Malformed JSON, duplicate keys, non-JSON numeric tokens |
-| UNSUPPORTED_SCHEMA_VERSION | Unknown file schema version |
-| INVALID_STRUCTURE | Schema violation, unknown property or malformed node |
-| INVALID_VALUE | Blank name, out-of-range/unsafe input, invalid default/bounds/timestamp order |
-| DEFINITION_NOT_FOUND | Exact manifest/template absent |
-| UNSUPPORTED_DEFINITION_VERSION | ID is known but required version unsupported |
-| IDENTITY_MISMATCH | Path/document identity, system reference, entityType, role/path or manifest membership mismatch |
-| DEFINITION_CONFLICT | Different content for an immutable identity/version |
-| DUPLICATE_ID | Repeated field/section/entry ID or manifest pair |
-| INVALID_SECTION | Missing, duplicate or unknown section membership |
-| INVALID_MODIFIER | Undeclared/input target or invalid effect operation/factor |
-| MODIFIER_CONFLICT | More than one effect targets the same derived field |
-| MISSING_FIELD | Required editable input absent |
-| UNKNOWN_FIELD | Undeclared instance input |
-| MISSING_REFERENCE | Expression field reference absent |
-| TYPE_MISMATCH | Invalid operand or final result type |
-| DEPENDENCY_CYCLE | Circular reference; related pointers identify participants |
-| DIVISION_BY_ZERO | Evaluated divisor is zero |
-| NONFINITE_RESULT | Literal/intermediate result not finite or unsafe integer |
+| code                           | Use                                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| INVALID_JSON                   | Malformed JSON, duplicate keys, non-JSON numeric tokens                                         |
+| UNSUPPORTED_SCHEMA_VERSION     | Unknown file schema version                                                                     |
+| INVALID_STRUCTURE              | Schema violation, unknown property or malformed node                                            |
+| INVALID_VALUE                  | Blank name, out-of-range/unsafe input, invalid default/bounds/timestamp order                   |
+| DEFINITION_NOT_FOUND           | Exact manifest/template absent                                                                  |
+| UNSUPPORTED_DEFINITION_VERSION | ID is known but required version unsupported                                                    |
+| IDENTITY_MISMATCH              | Path/document identity, system reference, entityType, role/path or manifest membership mismatch |
+| DEFINITION_CONFLICT            | Different content for an immutable identity/version                                             |
+| DUPLICATE_ID                   | Repeated field/section/entry ID or manifest pair                                                |
+| INVALID_SECTION                | Missing, duplicate or unknown section membership                                                |
+| INVALID_MODIFIER               | Undeclared/input target or invalid effect operation/factor                                      |
+| MODIFIER_CONFLICT              | More than one effect targets the same derived field                                             |
+| MISSING_FIELD                  | Required editable input absent                                                                  |
+| UNKNOWN_FIELD                  | Undeclared instance input                                                                       |
+| MISSING_REFERENCE              | Expression field reference absent                                                               |
+| TYPE_MISMATCH                  | Invalid operand or final result type                                                            |
+| DEPENDENCY_CYCLE               | Circular reference; related pointers identify participants                                      |
+| DIVISION_BY_ZERO               | Evaluated divisor is zero                                                                       |
+| NONFINITE_RESULT               | Literal/intermediate result not finite or unsafe integer                                        |
 
 Schema validation may report INVALID_STRUCTURE for a violation that also has a semantic code; consumers must not require an error ordering or exhaustive cascade. Prefer field-specific pointers. Example: `{ "code": "INVALID_VALUE", "document": "example-explorator-001", "pointer": "/values/agility", "message": "Agility must be an integer from 0 through 99; received 100." }`.
 

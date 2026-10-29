@@ -14,7 +14,10 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv-contracts/Scripts/python.exe",
       "args": [
-        "-m", "pip", "install", "-r",
+        "-m",
+        "pip",
+        "install",
+        "-r",
         "${workspaceFolder}/data_contracts/verification-requirements.txt"
       ],
       "dependsOn": "Contract verifier: create environment",

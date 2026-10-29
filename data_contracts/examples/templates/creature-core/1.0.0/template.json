@@ -27,21 +27,12 @@
     {
       "id": "bonuses",
       "label": "Bonuses",
-      "fields": [
-        "strengthBonus",
-        "toughnessBonus",
-        "agilityBonus"
-      ]
+      "fields": ["strengthBonus", "toughnessBonus", "agilityBonus"]
     },
     {
       "id": "movement",
       "label": "Movement",
-      "fields": [
-        "halfMove",
-        "fullMove",
-        "chargeMove",
-        "runMove"
-      ]
+      "fields": ["halfMove", "fullMove", "chargeMove", "runMove"]
     }
   ],
   "inputs": [
@@ -56,9 +47,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -72,9 +61,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -88,9 +75,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -104,9 +89,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -120,9 +103,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -136,9 +117,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -152,9 +131,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -168,9 +145,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -184,9 +159,7 @@
       "minimum": 0,
       "maximum": 99,
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     }
   ],
@@ -213,9 +186,7 @@
         }
       },
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -240,9 +211,7 @@
         }
       },
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -267,9 +236,7 @@
         }
       },
       "metadata": {
-        "sourceRegisterRefs": [
-          "S2"
-        ]
+        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -310,9 +277,7 @@
         }
       },
       "metadata": {
-        "sourceRegisterRefs": [
-          "S4"
-        ]
+        "sourceRegisterRefs": ["S4"]
       }
     },
     {
@@ -353,9 +318,7 @@
         }
       },
       "metadata": {
-        "sourceRegisterRefs": [
-          "S4"
-        ]
+        "sourceRegisterRefs": ["S4"]
       }
     },
     {
@@ -396,9 +359,7 @@
         }
       },
       "metadata": {
-        "sourceRegisterRefs": [
-          "S4"
-        ]
+        "sourceRegisterRefs": ["S4"]
       }
     },
     {
@@ -439,17 +400,12 @@
         }
       },
       "metadata": {
-        "sourceRegisterRefs": [
-          "S4"
-        ]
+        "sourceRegisterRefs": ["S4"]
       }
     }
   ],
   "entityType": "creature",
-  "modifierTargets": [
-    "strengthBonus",
-    "toughnessBonus"
-  ],
+  "modifierTargets": ["strengthBonus", "toughnessBonus"],
   "metadata": {
     "sourceReview": "specs/2026-10-28_source-review-scope/source-review.md",
     "requirementRefs": [

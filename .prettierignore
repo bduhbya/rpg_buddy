@@ -1,0 +1,12 @@
+node_modules/
+.webpack/
+.vite/
+out/
+test-results/
+playwright-report/
+coverage/
+.venv*/
+**/__pycache__/
+.mypy_cache/
+# npm maintains this generated file.
+package-lock.json

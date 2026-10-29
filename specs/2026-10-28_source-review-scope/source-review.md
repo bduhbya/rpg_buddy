@@ -15,15 +15,15 @@ User-supplied source: `C:\Users\Bduhbya\Downloads\Rogue Trader - Core Rulebook.p
 - For the cited pages, one-based PDF page = printed page + 4. Enter the PDF number in the viewer page control; printed numbers appear in the page footer.
 - No external rules, errata, supplements or later revisions are included. The scan creation timestamp is not used to infer publication edition.
 
-| Reference | Printed page | PDF page | Heading and use |
-| --- | --- | --- | --- |
-| S1 | 1-2 | 5-6 | Title and Credits: publication identity |
-| S2 | 14 | 18 | Stage 1: Generate Characteristics; Characteristic Bonuses; worked character example |
-| S3 | 31 | 35 | Name: freely selected character identity |
-| S4 | 264-265 | 268-269 | Movement; Table 9-30, Structured Time Movement (metres/round) |
-| S5 | 367 | 371 | Size and Table 14-2: boundary of excluded movement modifiers |
-| S6 | 368 | 372 | Unnatural Characteristic: multiply the bonus, not the score; no movement modification by this trait |
-| S7 | 377 | 381 | Ork Freebooter Profile: characteristics, Movement, Unnatural Toughness (x2) |
+| Reference | Printed page | PDF page | Heading and use                                                                                     |
+| --------- | ------------ | -------- | --------------------------------------------------------------------------------------------------- |
+| S1        | 1-2          | 5-6      | Title and Credits: publication identity                                                             |
+| S2        | 14           | 18       | Stage 1: Generate Characteristics; Characteristic Bonuses; worked character example                 |
+| S3        | 31           | 35       | Name: freely selected character identity                                                            |
+| S4        | 264-265      | 268-269  | Movement; Table 9-30, Structured Time Movement (metres/round)                                       |
+| S5        | 367          | 371      | Size and Table 14-2: boundary of excluded movement modifiers                                        |
+| S6        | 368          | 372      | Unnatural Characteristic: multiply the bonus, not the score; no movement modification by this trait |
+| S7        | 377          | 381      | Ork Freebooter Profile: characteristics, Movement, Unnatural Toughness (x2)                         |
 
 To reproduce visual inspection, use a locally available Poppler installation, for example:
 
@@ -38,10 +38,10 @@ Repeat rendering for each PDF page in the register. The book and rendered pages 
 
 Two distinct entity kinds use the same field/calculation model:
 
-| Selected template | Entity kind | Identity and purpose |
-| --- | --- | --- |
-| Explorator - core statistics | character | User-selected `displayName`; manual entry of final characteristics; ordinary, unmodified bonuses and movement |
-| Ork Freebooter - core statistics | monster | User-selected `displayName`; manually editable profile characteristics; fixed Unnatural Toughness x2 in this template |
+| Selected template                | Entity kind | Identity and purpose                                                                                                  |
+| -------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| Explorator - core statistics     | character   | User-selected `displayName`; manual entry of final characteristics; ordinary, unmodified bonuses and movement         |
+| Ork Freebooter - core statistics | monster     | User-selected `displayName`; manually editable profile characteristics; fixed Unnatural Toughness x2 in this template |
 
 `displayName` is a required nonblank string for both kinds (application policy); duplicate display names are allowed because stable instance IDs identify records. `kind` is fixed by the template, not an editable rules field. The character name basis is S3; the monster profile label is S7. Stable system/template/instance IDs, versions and timestamps are application metadata required by the constitution, to be specified in Phase 2; they are not RPG mechanics.
 
@@ -51,17 +51,17 @@ The Explorator template does not choose a career or apply an Origin Path. Users 
 
 Both kinds expose precisely the following nine editable numeric fields, in this order. Identifiers are semantic handoff names; Phase 2 will define their JSON representation. All definitions come from S2; their use in the selected monster profile is verified in S7.
 
-| Identifier | Label | Book abbreviation | Source |
-| --- | --- | --- | --- |
-| weaponSkill | Weapon Skill | WS | S2, S7 |
-| ballisticSkill | Ballistic Skill | BS | S2, S7 |
-| strength | Strength | S | S2, S7 |
-| toughness | Toughness | T | S2, S7 |
-| agility | Agility | Ag | S2, S7 |
-| intelligence | Intelligence | Int | S2, S7 |
-| perception | Perception | Per | S2, S7 |
-| willpower | Willpower | WP | S2, S7 |
-| fellowship | Fellowship | Fel | S2, S7 |
+| Identifier     | Label           | Book abbreviation | Source |
+| -------------- | --------------- | ----------------- | ------ |
+| weaponSkill    | Weapon Skill    | WS                | S2, S7 |
+| ballisticSkill | Ballistic Skill | BS                | S2, S7 |
+| strength       | Strength        | S                 | S2, S7 |
+| toughness      | Toughness       | T                 | S2, S7 |
+| agility        | Agility         | Ag                | S2, S7 |
+| intelligence   | Intelligence    | Int               | S2, S7 |
+| perception     | Perception      | Per               | S2, S7 |
+| willpower      | Willpower       | WP                | S2, S7 |
+| fellowship     | Fellowship      | Fel               | S2, S7 |
 
 Approved application input contract: finite integers from 0 through 99 inclusive. S2 describes a 0-100 scale, but this slice deliberately excludes score 100 and above to avoid extending the printed tens-digit language at three digits. This is a coverage limit, not a statement that 100 is illegal in the game. Revisit it explicitly when broadening coverage.
 
@@ -71,15 +71,15 @@ Manual entry only. Character creation rolls, rerolls and the optional point-allo
 
 Exactly seven visible derived values are selected. They are read-only and recomputed after valid edits or reload; do not persist them as authoritative source values.
 
-| Identifier | Label | Explorator | Ork Freebooter | Dependencies and source |
-| --- | --- | --- | --- | --- |
-| strengthBonus | Strength Bonus | floor(strength / 10) | same | strength; S2 |
-| toughnessBonus | Toughness Bonus | floor(toughness / 10) | 2 * floor(toughness / 10) | toughness; S2, S6, S7 |
-| agilityBonus | Agility Bonus | floor(agility / 10) | same | agility; S2 |
-| halfMove | Half Move | movement rule below | same | agilityBonus; S4 |
-| fullMove | Full Move | movement rule below | same | agilityBonus; S4 |
-| chargeMove | Charge | movement rule below | same | agilityBonus; S4 |
-| runMove | Run | movement rule below | same | agilityBonus; S4 |
+| Identifier     | Label           | Explorator            | Ork Freebooter            | Dependencies and source |
+| -------------- | --------------- | --------------------- | ------------------------- | ----------------------- |
+| strengthBonus  | Strength Bonus  | floor(strength / 10)  | same                      | strength; S2            |
+| toughnessBonus | Toughness Bonus | floor(toughness / 10) | 2 * floor(toughness / 10) | toughness; S2, S6, S7   |
+| agilityBonus   | Agility Bonus   | floor(agility / 10)   | same                      | agility; S2             |
+| halfMove       | Half Move       | movement rule below   | same                      | agilityBonus; S4        |
+| fullMove       | Full Move       | movement rule below   | same                      | agilityBonus; S4        |
+| chargeMove     | Charge          | movement rule below   | same                      | agilityBonus; S4        |
+| runMove        | Run             | movement rule below   | same                      | agilityBonus; S4        |
 
 Bonuses are dimensionless. Movement values are metres per combat round, on ordinary terrain with no movement modifiers. `floor` means round down after division, before multiplying a bonus. For the admitted input range it expresses the book's tens digit precisely.
 
@@ -130,13 +130,13 @@ Start with M1. Edit only Toughness 45 -> 50. TB becomes `2 * floor(50/10) = 10`;
 ### B1: Numeric boundaries (constructed from S2/S4)
 
 | Edited input | Expected base bonus | Expected movement when input is Agility |
-| --- | --- | --- |
-| 0 | 0 | (0.5, 1, 2, 3) |
-| 9 | 0 | (0.5, 1, 2, 3) |
-| 10 | 1 | (1, 2, 3, 6) |
-| 39 | 3 | (3, 6, 9, 18) |
-| 40 | 4 | (4, 8, 12, 24) |
-| 99 | 9 | (9, 18, 27, 54) |
+| ------------ | ------------------- | --------------------------------------- |
+| 0            | 0                   | (0.5, 1, 2, 3)                          |
+| 9            | 0                   | (0.5, 1, 2, 3)                          |
+| 10           | 1                   | (1, 2, 3, 6)                            |
+| 39           | 3                   | (3, 6, 9, 18)                           |
+| 40           | 4                   | (4, 8, 12, 24)                          |
+| 99           | 9                   | (9, 18, 27, 54)                         |
 
 For the Ork's Toughness only, multiply the base bonus column by 2. These boundary vectors are constructed verification cases, not quotations of book examples.
 

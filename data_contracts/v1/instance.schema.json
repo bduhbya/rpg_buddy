@@ -23,10 +23,7 @@
           "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
         }
       },
-      "required": [
-        "id",
-        "version"
-      ],
+      "required": ["id", "version"],
       "additionalProperties": false
     },
     "template": {
@@ -42,10 +39,7 @@
           "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
         }
       },
-      "required": [
-        "id",
-        "version"
-      ],
+      "required": ["id", "version"],
       "additionalProperties": false
     },
     "displayName": {
@@ -79,10 +73,7 @@
       "maxLength": 64
     },
     "role": {
-      "enum": [
-        "character",
-        "monster"
-      ]
+      "enum": ["character", "monster"]
     },
     "career": {
       "type": "string",
@@ -133,11 +124,7 @@
                   "maximum": 9007199254740991
                 }
               },
-              "required": [
-                "op",
-                "target",
-                "factor"
-              ],
+              "required": ["op", "target", "factor"],
               "additionalProperties": false
             }
           },
@@ -166,13 +153,7 @@
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "category",
-          "label",
-          "description",
-          "effects"
-        ],
+        "required": ["id", "category", "label", "description", "effects"],
         "additionalProperties": false
       }
     },

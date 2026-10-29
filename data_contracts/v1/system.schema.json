@@ -34,11 +34,7 @@
           "pattern": "^[A-F0-9]{64}$"
         }
       },
-      "required": [
-        "designation",
-        "isbn",
-        "sha256"
-      ],
+      "required": ["designation", "isbn", "sha256"],
       "additionalProperties": false
     },
     "templates": {
@@ -56,22 +52,12 @@
             "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
           }
         },
-        "required": [
-          "id",
-          "version"
-        ],
+        "required": ["id", "version"],
         "additionalProperties": false
       },
       "minItems": 1
     }
   },
-  "required": [
-    "schemaVersion",
-    "id",
-    "version",
-    "label",
-    "source",
-    "templates"
-  ],
+  "required": ["schemaVersion", "id", "version", "label", "source", "templates"],
   "additionalProperties": false
 }

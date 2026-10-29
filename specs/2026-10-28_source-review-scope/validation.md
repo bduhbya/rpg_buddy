@@ -2,13 +2,13 @@
 
 ## Required activities (defined before deliverable authoring)
 
-| ID | Requirements | Method and expected result | Status |
-| --- | --- | --- | --- |
-| V1 | SR-1 | Inspect rendered title/credits; fingerprint PDF; match printed/PDF numbering on every cited rule page. Expect unambiguous source identity and locations. | Passed |
-| V2 | SR-2, SR-3 | Inspect full relevant rule pages and compare each selected field/formula with the source; check exceptions and explicit exclusions. Expect no unsupported rule claims. | Passed |
-| V3 | SR-4 | Independently calculate example bonuses, movement and edit/boundary results; compare with book examples/tables. Expect exact agreement and no silent invalid-input coercion. | Passed |
-| V4 | SR-3, SR-5 | Inspect all phase documents, links and git diff; run git diff --check. Expect coherent scope, no application code or PDF committed, no constitution conflict. | Passed |
-| V5 | SR-6 | Human opens the supplied PDF and source-review.md, follows the checklist below, and explicitly accepts or corrects the selected slice. Expect recorded approval before Phase 1 completion. | Passed |
+| ID  | Requirements | Method and expected result                                                                                                                                                                 | Status |
+| --- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| V1  | SR-1         | Inspect rendered title/credits; fingerprint PDF; match printed/PDF numbering on every cited rule page. Expect unambiguous source identity and locations.                                   | Passed |
+| V2  | SR-2, SR-3   | Inspect full relevant rule pages and compare each selected field/formula with the source; check exceptions and explicit exclusions. Expect no unsupported rule claims.                     | Passed |
+| V3  | SR-4         | Independently calculate example bonuses, movement and edit/boundary results; compare with book examples/tables. Expect exact agreement and no silent invalid-input coercion.               | Passed |
+| V4  | SR-3, SR-5   | Inspect all phase documents, links and git diff; run git diff --check. Expect coherent scope, no application code or PDF committed, no constitution conflict.                              | Passed |
+| V5  | SR-6         | Human opens the supplied PDF and source-review.md, follows the checklist below, and explicitly accepts or corrects the selected slice. Expect recorded approval before Phase 1 completion. | Passed |
 
 ## Human walkthrough
 

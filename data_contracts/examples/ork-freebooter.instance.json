@@ -41,13 +41,8 @@
       ],
       "metadata": {
         "sourceReview": "specs/2026-10-28_source-review-scope/source-review.md",
-        "sourceRegisterRefs": [
-          "S6",
-          "S7"
-        ],
-        "requirementRefs": [
-          "specs/2026-10-28_data-contracts/requirements.md: DC-8"
-        ]
+        "sourceRegisterRefs": ["S6", "S7"],
+        "requirementRefs": ["specs/2026-10-28_data-contracts/requirements.md: DC-8"]
       }
     }
   ]
