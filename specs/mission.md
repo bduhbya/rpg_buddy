@@ -12,7 +12,7 @@ Support the base game of **Warhammer 40,000: Rogue Trader**. The user will provi
 
 The milestone is complete when a user can:
 
-- Load a Rogue Trader character or monster template.
+- Load a Rogue Trader creature template for character or monster instances.
 - Create distinct character and monster instances from those templates.
 - Edit template-defined core values through a usable interface.
 - See supported derived values update according to template-defined relationships.
@@ -29,6 +29,8 @@ The milestone proves a representative, explicitly specified subset of the base g
 - Preserve user data when validation, calculation, or saving fails.
 - Keep system-specific mechanics out of generic application code wherever the declarative model can reasonably express them.
 - Prefer a small, verifiable working slice over broad unfinished functionality.
+
+Career/class and selected skills, talents, traits and custom entries are user-directed using the rulebook and GM judgment. The application validates data and explicitly supported calculations without enforcing complete character legality. Characters and monsters share creature sheet structure; their roles and chosen features belong to instances.
 
 ## Future scope
 

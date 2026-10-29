@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug contract verifier",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv-contracts/Scripts/python.exe",
+      "program": "${workspaceFolder}/data_contracts/verify_contracts.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": ""
+      },
+      "pythonArgs": [
+        "-X",
+        "frozen_modules=off"
+      ]
+    }
+  ]
+}

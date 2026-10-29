@@ -1,0 +1,3 @@
+# Optional tooling for maintainers; the normal verifier does not require mypy.
+mypy==2.4.1
+types-jsonschema==4.26.0.20261006

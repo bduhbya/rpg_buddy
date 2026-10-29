@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "example-explorator-001",
+  "system": {
+    "id": "rogue-trader",
+    "version": "1.0.0"
+  },
+  "template": {
+    "id": "creature-core",
+    "version": "1.0.0"
+  },
+  "displayName": "Example Explorator",
+  "values": {
+    "weaponSkill": 36,
+    "ballisticSkill": 33,
+    "strength": 41,
+    "toughness": 35,
+    "agility": 34,
+    "intelligence": 37,
+    "perception": 40,
+    "willpower": 39,
+    "fellowship": 33
+  },
+  "createdAt": "2026-10-28T18:00:00Z",
+  "modifiedAt": "2026-10-28T18:00:00Z",
+  "role": "character",
+  "entityType": "creature",
+  "entries": [],
+  "career": "Explorator"
+}

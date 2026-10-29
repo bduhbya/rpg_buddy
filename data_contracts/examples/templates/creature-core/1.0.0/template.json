@@ -1,0 +1,460 @@
+{
+  "schemaVersion": 1,
+  "id": "creature-core",
+  "version": "1.0.0",
+  "system": {
+    "id": "rogue-trader",
+    "version": "1.0.0"
+  },
+  "label": "Creature - core statistics",
+  "defaultDisplayName": "Creature",
+  "sections": [
+    {
+      "id": "characteristics",
+      "label": "Characteristics",
+      "fields": [
+        "weaponSkill",
+        "ballisticSkill",
+        "strength",
+        "toughness",
+        "agility",
+        "intelligence",
+        "perception",
+        "willpower",
+        "fellowship"
+      ]
+    },
+    {
+      "id": "bonuses",
+      "label": "Bonuses",
+      "fields": [
+        "strengthBonus",
+        "toughnessBonus",
+        "agilityBonus"
+      ]
+    },
+    {
+      "id": "movement",
+      "label": "Movement",
+      "fields": [
+        "halfMove",
+        "fullMove",
+        "chargeMove",
+        "runMove"
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "weaponSkill",
+      "label": "Weapon Skill",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "ballisticSkill",
+      "label": "Ballistic Skill",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "strength",
+      "label": "Strength",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "toughness",
+      "label": "Toughness",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "agility",
+      "label": "Agility",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "intelligence",
+      "label": "Intelligence",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "perception",
+      "label": "Perception",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "willpower",
+      "label": "Willpower",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "fellowship",
+      "label": "Fellowship",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 99,
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    }
+  ],
+  "derived": [
+    {
+      "id": "strengthBonus",
+      "label": "Strength Bonus",
+      "type": "number",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "expression": {
+        "op": "floor",
+        "value": {
+          "op": "divide",
+          "left": {
+            "op": "field",
+            "id": "strength"
+          },
+          "right": {
+            "op": "constant",
+            "value": 10
+          }
+        }
+      },
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "toughnessBonus",
+      "label": "Toughness Bonus",
+      "type": "number",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "expression": {
+        "op": "floor",
+        "value": {
+          "op": "divide",
+          "left": {
+            "op": "field",
+            "id": "toughness"
+          },
+          "right": {
+            "op": "constant",
+            "value": 10
+          }
+        }
+      },
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "agilityBonus",
+      "label": "Agility Bonus",
+      "type": "number",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed p. 14: Characteristics and Characteristic Bonuses."
+      ],
+      "expression": {
+        "op": "floor",
+        "value": {
+          "op": "divide",
+          "left": {
+            "op": "field",
+            "id": "agility"
+          },
+          "right": {
+            "op": "constant",
+            "value": 10
+          }
+        }
+      },
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "id": "halfMove",
+      "label": "Half Move",
+      "type": "number",
+      "unit": "metres/round",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed pp. 264-265: Movement and Table 9-30."
+      ],
+      "expression": {
+        "op": "if",
+        "condition": {
+          "op": "equal",
+          "left": {
+            "op": "field",
+            "id": "agilityBonus"
+          },
+          "right": {
+            "op": "constant",
+            "value": 0
+          }
+        },
+        "then": {
+          "op": "constant",
+          "value": 0.5
+        },
+        "else": {
+          "op": "multiply",
+          "left": {
+            "op": "field",
+            "id": "agilityBonus"
+          },
+          "right": {
+            "op": "constant",
+            "value": 1
+          }
+        }
+      },
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S4"
+        ]
+      }
+    },
+    {
+      "id": "fullMove",
+      "label": "Full Move",
+      "type": "number",
+      "unit": "metres/round",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed pp. 264-265: Movement and Table 9-30."
+      ],
+      "expression": {
+        "op": "if",
+        "condition": {
+          "op": "equal",
+          "left": {
+            "op": "field",
+            "id": "agilityBonus"
+          },
+          "right": {
+            "op": "constant",
+            "value": 0
+          }
+        },
+        "then": {
+          "op": "constant",
+          "value": 1
+        },
+        "else": {
+          "op": "multiply",
+          "left": {
+            "op": "field",
+            "id": "agilityBonus"
+          },
+          "right": {
+            "op": "constant",
+            "value": 2
+          }
+        }
+      },
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S4"
+        ]
+      }
+    },
+    {
+      "id": "chargeMove",
+      "label": "Charge",
+      "type": "number",
+      "unit": "metres/round",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed pp. 264-265: Movement and Table 9-30."
+      ],
+      "expression": {
+        "op": "if",
+        "condition": {
+          "op": "equal",
+          "left": {
+            "op": "field",
+            "id": "agilityBonus"
+          },
+          "right": {
+            "op": "constant",
+            "value": 0
+          }
+        },
+        "then": {
+          "op": "constant",
+          "value": 2
+        },
+        "else": {
+          "op": "multiply",
+          "left": {
+            "op": "field",
+            "id": "agilityBonus"
+          },
+          "right": {
+            "op": "constant",
+            "value": 3
+          }
+        }
+      },
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S4"
+        ]
+      }
+    },
+    {
+      "id": "runMove",
+      "label": "Run",
+      "type": "number",
+      "unit": "metres/round",
+      "sourceRefs": [
+        "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed pp. 264-265: Movement and Table 9-30."
+      ],
+      "expression": {
+        "op": "if",
+        "condition": {
+          "op": "equal",
+          "left": {
+            "op": "field",
+            "id": "agilityBonus"
+          },
+          "right": {
+            "op": "constant",
+            "value": 0
+          }
+        },
+        "then": {
+          "op": "constant",
+          "value": 3
+        },
+        "else": {
+          "op": "multiply",
+          "left": {
+            "op": "field",
+            "id": "agilityBonus"
+          },
+          "right": {
+            "op": "constant",
+            "value": 6
+          }
+        }
+      },
+      "metadata": {
+        "sourceRegisterRefs": [
+          "S4"
+        ]
+      }
+    }
+  ],
+  "entityType": "creature",
+  "modifierTargets": [
+    "strengthBonus",
+    "toughnessBonus"
+  ],
+  "metadata": {
+    "sourceReview": "specs/2026-10-28_source-review-scope/source-review.md",
+    "requirementRefs": [
+      "specs/2026-10-28_data-contracts/requirements.md: DC-5",
+      "specs/2026-10-28_data-contracts/requirements.md: DC-8"
+    ]
+  }
+}

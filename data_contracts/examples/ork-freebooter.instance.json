@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "example-ork-freebooter-001",
+  "system": {
+    "id": "rogue-trader",
+    "version": "1.0.0"
+  },
+  "template": {
+    "id": "creature-core",
+    "version": "1.0.0"
+  },
+  "displayName": "Example Ork Freebooter",
+  "values": {
+    "weaponSkill": 45,
+    "ballisticSkill": 20,
+    "strength": 50,
+    "toughness": 45,
+    "agility": 30,
+    "intelligence": 26,
+    "perception": 30,
+    "willpower": 28,
+    "fellowship": 22
+  },
+  "createdAt": "2026-10-28T18:00:00Z",
+  "modifiedAt": "2026-10-28T18:00:00Z",
+  "role": "monster",
+  "entityType": "creature",
+  "entries": [
+    {
+      "id": "unnatural-toughness",
+      "category": "trait",
+      "label": "Unnatural Toughness (x2)",
+      "description": "Multiply the Toughness Bonus after deriving it from Toughness.",
+      "source": "Rogue Trader Core Rulebook (2009, RT01, Print ID 01), printed pp. 368 and 377: Unnatural Characteristic and Ork Freebooter.",
+      "effects": [
+        {
+          "op": "multiply",
+          "target": "toughnessBonus",
+          "factor": 2
+        }
+      ],
+      "metadata": {
+        "sourceReview": "specs/2026-10-28_source-review-scope/source-review.md",
+        "sourceRegisterRefs": [
+          "S6",
+          "S7"
+        ],
+        "requirementRefs": [
+          "specs/2026-10-28_data-contracts/requirements.md: DC-8"
+        ]
+      }
+    }
+  ]
+}

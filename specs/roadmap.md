@@ -11,17 +11,21 @@ The sequence below is the initial plan. Amend it explicitly as source review or 
 | Completed | Phase | Deliverable                                                                                                            | Human-verifiable completion                                                                            |
 | --- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | [x] | 1. Source review and scope | Confirm the supplied Rogue Trader book and select representative character and monster fields and calculations.        | Review the supported-field list, source references, worked examples, and exclusions.                   |
-| [ ] | 2. Data contracts          | Specify system manifests, templates, instances, versions, expressions, and library paths; provide small JSON examples. | Inspect one character and one monster example and trace every dependency.                              |
+| [x] | 2. Data contracts          | Specify system manifests, templates, instances, versions, expressions, and library paths; provide small JSON examples. | Inspect one character and one monster example and trace every dependency.                              |
 | [ ] | 3. Application foundation  | Establish Electron, React, TypeScript, and the domain/persistence/UI boundaries.                                       | Launch a minimal desktop window and verify the typed application boundary.                             |
 | [ ] | 4. Definition validation   | Load and validate the system manifest and templates without a full editor.                                             | Valid examples load; malformed definitions produce understandable diagnostics.                         |
 | [ ] | 5. Calculation engine      | Evaluate the agreed expression subset and dependency graph.                                                            | Compare outputs with worked rule examples; verify missing references and cycles are rejected.          |
-| [ ] | 6. Rogue Trader templates  | Encode the agreed character and monster scope using the validated contracts.                                           | Review field definitions and calculation results against the source book.                              |
+| [ ] | 6. Rogue Trader templates  | Encode the shared creature template and instance-owned character/monster features using the validated contracts.                                           | Review field definitions and calculation results against the source book.                              |
 | [ ] | 7. In-memory instances     | Create independent instances, apply defaults, edit values, and recompute results.                                      | Demonstrate that editing one instance updates its results without changing another.                    |
 | [ ] | 8. Save and reload         | Add configurable library location, validated JSON persistence, and overwrite backups.                                  | Round-trip character and monster instances; demonstrate backup preservation and safe failure handling. |
-| [ ] | 9. Minimal sheet editor    | Connect template selection, instance creation, editable fields, derived values, and save/load controls.                | Complete the workflow through the interface for both entity kinds.                                     |
+| [ ] | 9. Minimal sheet editor    | Connect template selection, instance creation, editable fields, derived values, and save/load controls.                | Complete the workflow through the interface for both instance roles.                                     |
 | [ ] | 10. Milestone verification | Run the agreed acceptance scenarios and address blocking defects.                                                      | A human reproduces create, edit, calculate, save, close, and reload for a character and a monster.     |
 
 Use fixtures or a small development harness to inspect domain behavior before the sheet editor exists. The foundation window provides an early runnable application; later phases add verified behavior incrementally.
+
+## Feature-library follow-on commitment
+
+Before implementing reusable feature selection, specify a bounded phase for system-specific feature definitions/catalog storage, exact version provenance, compatibility checks and copying selections into instance-owned entries. Templates retain generic modifierTargets and do not enumerate named features. Selected snapshots remain usable without a live library; upgrades require explicit user action. The current Phase 2 entry/effect contract is the snapshot baseline, not an implemented library. Schedule the follow-on explicitly when selecting the next scope; it is not implicitly added to the foundation phase.
 
 ## Later milestones
 
