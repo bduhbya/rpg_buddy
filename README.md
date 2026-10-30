@@ -56,6 +56,12 @@ For independent JSON contract and fixture verification, follow the Python enviro
 .\.venv-contracts\Scripts\python.exe data_contracts\verify_contracts.py
 ```
 
+## Pull requests and merge checks
+
+Open a pull request into `main` for changes. GitHub Actions runs **Windows validation**: formatting, TypeScript checks, unit tests, Python contract and type checks, packaging, and development/packaged Electron tests. The workflow also runs after pushes to `main`. Failed test diagnostics are available as a workflow artifact for seven days.
+
+The merge policy requires a passing **Windows validation** check and a branch up to date with `main`, including for administrators. Update your branch when the base changes and let validation run again. No GitHub approving-review count is required; repository access is managed by the owner. Automated agents must wait for the owner's explicit approval before merging. The protection settings live in GitHub and must be configured separately from the workflow file.
+
 ## Diagnostics
 
 The application writes local rotating logs to `%APPDATA%\RPG Buddy\logs` on Windows. No logs are uploaded automatically. Use **Diagnostics > Enable debug tracing** for additional logging during the current launch, or set `RPG_BUDDY_LOG_LEVEL=debug` before starting the application.
