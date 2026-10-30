@@ -22,6 +22,8 @@ Use one consistently named required job, `Windows validation`, on Windows x64. U
 
 Configure main protection only after the real check is registered. Require strict up-to-date checks from GitHub Actions and pull requests, enforce administrators, and disallow force pushes and branch deletion. Inspect existing settings first and preserve unrelated rules. Verify enforcement through the GitHub API; do not attempt a destructive push merely to demonstrate rejection.
 
+Keep text checkout line endings consistent with the existing Prettier LF policy, including on Windows hosted runners, through repository attributes.
+
 ## 5. Accessibility requirements
 
 No application interface changes. Use descriptive workflow/step names and plain-language contributor instructions so failures can be located without relying on color.
