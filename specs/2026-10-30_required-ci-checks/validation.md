@@ -2,13 +2,13 @@
 
 Defined before implementation on 2026-10-30.
 
-| ID  | Requirement | Method and expected result                                                                                                                                              | Status  | Evidence                       |
-| --- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------ |
-| V1  | CI-1        | Run npm run format:check, npm run typecheck, npm run test:unit, Python contract verifier and strict mypy; all succeed.                                                  | Passed  | See local evidence below.      |
-| V2  | CI-1        | Run npm run package then npm run test:smoke sequentially; build and both projects succeed, with only existing explicit development skips.                               | Passed  | See local evidence below.      |
-| V3  | CI-1, CI-3  | Inspect YAML triggers, read-only permissions, pinned actions, tool versions, command exit handling and diagnostic retention. Run formatting and git diff --check.       | Passed  | See local evidence below.      |
-| V4  | CI-1        | Observe the actual PR Windows validation job and its steps; conclusion success on the current PR head.                                                                  | Not run | Pending remote run.            |
-| V5  | CI-2        | Read main protection through GitHub API; strict Actions-sourced check, PR required with zero review count, administrators enforced, force pushes and deletion disabled. | Passed  | See protection evidence below. |
+| ID  | Requirement | Method and expected result                                                                                                                                              | Status | Evidence                       |
+| --- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------ |
+| V1  | CI-1        | Run npm run format:check, npm run typecheck, npm run test:unit, Python contract verifier and strict mypy; all succeed.                                                  | Passed | See local evidence below.      |
+| V2  | CI-1        | Run npm run package then npm run test:smoke sequentially; build and both projects succeed, with only existing explicit development skips.                               | Passed | See local evidence below.      |
+| V3  | CI-1, CI-3  | Inspect YAML triggers, read-only permissions, pinned actions, tool versions, command exit handling and diagnostic retention. Run formatting and git diff --check.       | Passed | See local evidence below.      |
+| V4  | CI-1        | Observe the actual PR Windows validation job and its steps; conclusion success on the current PR head.                                                                  | Passed | See hosted evidence below.     |
+| V5  | CI-2        | Read main protection through GitHub API; strict Actions-sourced check, PR required with zero review count, administrators enforced, force pushes and deletion disabled. | Passed | See protection evidence below. |
 
 ## Human verification
 
@@ -36,3 +36,11 @@ No existing protection/rulesets were present, so no unrelated settings were repl
 ## First hosted run and correction
 
 The [first hosted run](https://github.com/bduhbya/rpg_buddy/actions/runs/41114060113) failed at formatting after fresh dependency installation. Its logs reported LF-policy violations across the Windows checkout, while the same files passed locally. Git stores the affected text as LF; the runner converted checkout text to CRLF. Added `.gitattributes` with `* text=auto eol=lf` to align fresh checkouts with the existing Prettier setting without changing source formatting or weakening the check. Hosted validation must be rerun after this correction. This failed run also supplies evidence that an early command failure prevents job success.
+
+## Successful hosted validation - 2026-10-30
+
+[Windows validation run](https://github.com/bduhbya/rpg_buddy/actions/runs/41114408146) completed successfully on PR #1 after the line-ending correction, including fresh dependency installation, packaging and the development/packaged Electron checks. Failed-diagnostic upload was correctly skipped on success. A separate fresh local clone with core.autocrlf=true confirmed LF checkouts for the workflow, Prettier configuration and domain source under the new repository attributes.
+
+GitHub reported mergeable_state=blocked while the required check was pending, providing nondestructive enforcement evidence. Main protection read-back confirmed the required GitHub Actions source, strict up-to-date policy and administrator enforcement. The workflow and application tests were not weakened to achieve success. This final documentation commit triggers a fresh run; its current-head result is visible on PR #1 and must pass before merging. No application behavior or dependency versions changed.
+
+The phase's implementation and remote configuration are complete. PR #1 is deliberately left open for owner review and explicit merge approval. Human walkthrough remains supplementary and Not run.
