@@ -1,11 +1,57 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { APPLICATION_INFO_CHANNEL } from '../shared/application-info';
 import { createApplicationInfoHandler } from './application-info';
+import path from 'node:path';
+import { LOG_CHANNEL, sanitizeError } from '../shared/logging-contract';
+import type { LogReason } from '../shared/logging-contract';
+import { LogService } from './logging';
+import { createLogHandler, operationId } from './logging-ipc';
+import { installDiagnosticsMenu } from './menu';
+
+const logging = new LogService({
+  directory: path.join(app.getPath('userData'), 'logs'),
+  metadata: {
+    buildId: RPG_BUDDY_BUILD_ID,
+    appVersion: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+  },
+  debug: process.env.RPG_BUDDY_LOG_LEVEL === 'debug',
+  development: !app.isPackaged,
+});
+let terminating = false;
+let fatalInProgress = false;
+function fatal(error: unknown, reason: LogReason): void {
+  if (fatalInProgress) return;
+  fatalInProgress = true;
+  terminating = true;
+  logging.record({
+    event: 'application.fatal',
+    reason,
+    level: 'fatal',
+    operationId: operationId(),
+    error: sanitizeError(error),
+  });
+  const deadline = setTimeout(() => app.exit(1), 2500);
+  void logging.close().finally(() => {
+    clearTimeout(deadline);
+    app.exit(1);
+  });
+}
+process.on('uncaughtException', (error) => fatal(error, 'UNCAUGHT_EXCEPTION'));
+process.on('unhandledRejection', (error) => fatal(error, 'UNHANDLED_REJECTION'));
 
 let mainWindow: BrowserWindow | undefined;
 // Forge's packaged file URL contains platform separators and unescaped spaces.
 // Compare the same canonical URL Chromium uses, never a prefix or origin alone.
 const trustedDocument = new URL(MAIN_WINDOW_WEBPACK_ENTRY).href;
+ipcMain.handle(
+  LOG_CHANNEL,
+  createLogHandler(() => mainWindow?.webContents, trustedDocument, logging),
+);
+logging.record({ event: 'application.started', level: 'info', operationId: operationId() });
+logging.record({ event: 'application.debug', level: 'debug', operationId: operationId() });
 
 ipcMain.handle(
   APPLICATION_INFO_CHANNEL,
@@ -19,6 +65,7 @@ ipcMain.handle(
       chrome: process.versions.chrome,
       node: process.versions.node,
     }),
+    logging,
   ),
 );
 
@@ -41,6 +88,9 @@ async function createWindow(): Promise<void> {
   });
 
   mainWindow = window;
+  window.webContents.on('render-process-gone', () => {
+    logging.record({ event: 'renderer.terminated', level: 'error', operationId: operationId() });
+  });
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = undefined;
   });
@@ -61,15 +111,27 @@ async function createWindow(): Promise<void> {
 }
 
 function reportStartupFailure(error: unknown): void {
-  console.error('RPG Buddy startup failed:', error);
+  logging.record({
+    event: 'application.startup.failed',
+    reason: 'WINDOW_STARTUP_FAILED',
+    level: 'error',
+    operationId: operationId(),
+    error: sanitizeError(error),
+  });
   dialog.showErrorBox(
     'RPG Buddy could not start',
-    error instanceof Error ? error.message : String(error),
+    'The application could not start. Local diagnostic logs may contain more information.',
   );
-  app.exit(1);
+  fatal(error, 'WINDOW_STARTUP_FAILED');
 }
 
-void app.whenReady().then(createWindow).catch(reportStartupFailure);
+void app
+  .whenReady()
+  .then(() => {
+    installDiagnosticsMenu(logging);
+    return createWindow();
+  })
+  .catch(reportStartupFailure);
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     void createWindow().catch(reportStartupFailure);
@@ -77,4 +139,11 @@ app.on('activate', () => {
 });
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+app.on('before-quit', (event) => {
+  if (terminating) return;
+  event.preventDefault();
+  terminating = true;
+  logging.record({ event: 'application.stopped', level: 'info', operationId: operationId() });
+  void logging.close().finally(() => app.quit());
 });

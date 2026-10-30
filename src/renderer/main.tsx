@@ -2,8 +2,27 @@ import { StrictMode, useEffect, useState } from 'react';
 import type { ApplicationInfoResult } from '../shared/application-info';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
+import { recordRendererError } from './renderer-logger';
 
 function App() {
+  const [diagnostic, setDiagnostic] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function simulateFailure() {
+    setBusy(true);
+    const operation = crypto.randomUUID();
+    try {
+      throw new Error('Simulated diagnostic failure');
+    } catch (error) {
+      const result = await recordRendererError('diagnostic.renderer.failure', error, operation);
+      setDiagnostic(
+        result.ok
+          ? `Diagnostic queued. Operation ID: ${operation}`
+          : 'Diagnostic logging is unavailable. The application can still be used.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   const [result, setResult] = useState<ApplicationInfoResult>();
   useEffect(() => {
     let active = true;
@@ -45,6 +64,14 @@ function App() {
             <dd>{result.info.node}</dd>
           </dl>
         )}
+      </section>
+      <section aria-labelledby="diagnostics-heading">
+        <h2 id="diagnostics-heading">Support diagnostics</h2>
+        <p>Record a simulated failure to help verify local diagnostic logging.</p>
+        <button type="button" disabled={busy} onClick={() => void simulateFailure()}>
+          Simulate diagnostic failure
+        </button>
+        <p role="status">{diagnostic}</p>
       </section>
     </main>
   );

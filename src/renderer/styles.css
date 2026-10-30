@@ -34,3 +34,14 @@ p {
   font-size: 1.25rem;
   font-weight: 600;
 }
+button {
+  font: inherit;
+  padding: 0.5em 0.8em;
+  max-width: 100%;
+  white-space: normal;
+  cursor: pointer;
+}
+button:focus-visible {
+  outline: 3px solid #245f87;
+  outline-offset: 3px;
+}

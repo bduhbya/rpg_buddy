@@ -1,3 +1,4 @@
+import type { LogInput, LogResult } from './logging-contract';
 export const APPLICATION_INFO_CHANNEL = 'application:get-info';
 
 export interface ApplicationInfoRequest {
@@ -18,6 +19,7 @@ export type ApplicationInfoResult =
 
 export interface ApplicationBridge {
   getApplicationInfo(): Promise<ApplicationInfoResult>;
+  recordLog(input: LogInput): Promise<LogResult>;
 }
 
 function record(value: unknown): value is Record<string, unknown> {

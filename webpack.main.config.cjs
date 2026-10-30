@@ -1,4 +1,6 @@
+const { BuildIdentityPlugin } = require('./build/identity.cjs');
 module.exports = {
+  plugins: [new BuildIdentityPlugin()],
   entry: './src/main/main.ts',
   devtool: 'source-map',
   module: {

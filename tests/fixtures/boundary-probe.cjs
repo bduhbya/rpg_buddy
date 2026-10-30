@@ -2,4 +2,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('boundaryProbe', {
   invoke: (...args) => ipcRenderer.invoke('application:get-info', ...args),
+  logInvoke: (...args) => ipcRenderer.invoke('diagnostics:record', ...args),
 });

@@ -1,4 +1,6 @@
-import { test as base, expect, chromium, _electron as electron } from '@playwright/test';
+import { expect, chromium, _electron as electron } from '@playwright/test';
+import { test as base } from './test-profile';
+import type { TestProfile } from './test-profile';
 import type { Browser, ElectronApplication, Page } from '@playwright/test';
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
@@ -34,10 +36,12 @@ function stopProcessTree(child: ChildProcess): void {
 interface DesktopShell {
   page: Page;
   application?: ElectronApplication;
+  profile: TestProfile;
 }
 
 export const test = base.extend<{ shell: DesktopShell }>({
-  shell: async ({}, use, testInfo) => {
+  shell: async ({ profiles }, use, testInfo) => {
+    const profile = profiles.create();
     let development: ChildProcess | undefined;
     let browser: Browser | undefined;
     let application: ElectronApplication | undefined;
@@ -60,6 +64,7 @@ export const test = base.extend<{ shell: DesktopShell }>({
           [
             'node_modules/@electron-forge/cli/dist/electron-forge-start.js',
             '--',
+            ...profile.args,
             `--remote-debugging-port=${port}`,
             '--remote-debugging-address=127.0.0.1',
           ],
@@ -70,6 +75,7 @@ export const test = base.extend<{ shell: DesktopShell }>({
             detached: process.platform !== 'win32',
           },
         );
+        profile.track(development, process.platform !== 'win32');
         development.on('error', (error) => {
           output += error.stack;
         });
@@ -103,7 +109,8 @@ export const test = base.extend<{ shell: DesktopShell }>({
           `RPG Buddy-${process.platform}-${process.arch}`,
           process.platform === 'win32' ? 'RPG Buddy.exe' : 'RPG Buddy',
         );
-        application = await electron.launch({ executablePath, env });
+        application = await electron.launch({ executablePath, env, args: profile.args });
+        profile.track(application.process());
         application.process().stdout?.on('data', (data: Buffer) => {
           output += data.toString();
         });
@@ -128,7 +135,8 @@ export const test = base.extend<{ shell: DesktopShell }>({
       await expect(page.getByRole('heading', { name: 'RPG Buddy', exact: true })).toBeVisible({
         timeout: 30_000,
       });
-      await use({ page, application });
+      await profile.verifyStartup(application);
+      await use({ page, application, profile });
       expect(rendererErrors).toEqual([]);
       expect(assetErrors).toEqual([]);
       expect(output).not.toMatch(
