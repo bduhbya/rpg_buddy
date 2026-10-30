@@ -4,6 +4,8 @@ Entries summarize development changes by date and may be updated before committi
 
 ## 2026-10-30
 
+- Added a Windows GitHub Actions workflow for pull-request validation, covering formatting, TypeScript, unit tests, Python contract/type checks, packaging and both Electron test modes, with failed-test diagnostic artifacts. Enabled main-branch protection requiring passing GitHub Actions checks and an up-to-date PR, including administrators; added LF checkout attributes for consistent Windows formatting.
+
 - Added framework-independent TypeScript declarations for system manifests, templates, expressions, instances, selected entries and effects, and diagnostics. These represent the existing v1 contracts; runtime validation and calculation remain future work.
 - Established a Vitest unit-test harness using the existing character, monster and shared creature-template fixtures, with compile-time contract cases, independent fixture loads and domain dependency checks. Added the unit-test command and completed the domain foundation phase documentation.
 - Refocused the README on project purpose and current capabilities, setup and build instructions, important commands, and basic diagnostics.
