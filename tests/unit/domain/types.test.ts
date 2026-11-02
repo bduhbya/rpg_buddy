@@ -1,8 +1,13 @@
 import { expectTypeOf, test } from 'vitest';
-import type { Metadata } from '../../src/domain/common';
-import type { Diagnostic, DiagnosticCode } from '../../src/domain/diagnostics';
-import type { Instance, InstanceRole, MultiplyEffect, Template } from '../../src/domain/documents';
-import type { Expression } from '../../src/domain/expressions';
+import type { Metadata } from '../../../src/domain/common';
+import type { Diagnostic, DiagnosticCode } from '../../../src/domain/diagnostics';
+import type {
+  Instance,
+  InstanceRole,
+  MultiplyEffect,
+  Template,
+} from '../../../src/domain/documents';
+import type { Expression } from '../../../src/domain/expressions';
 
 test('v1 discriminants and optional documentary metadata remain explicit', () => {
   expectTypeOf<InstanceRole>().toEqualTypeOf<'character' | 'monster'>();

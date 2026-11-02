@@ -67,3 +67,11 @@ The merge policy requires a passing **Windows validation** check and a branch up
 The application writes local rotating logs to `%APPDATA%\RPG Buddy\logs` on Windows. No logs are uploaded automatically. Use **Diagnostics > Enable debug tracing** for additional logging during the current launch, or set `RPG_BUDDY_LOG_LEVEL=debug` before starting the application.
 
 The **Simulate diagnostic failure** button records a correlated diagnostic without crashing the app. For support, close all application windows, copy the log files, and include the operation ID and a description of the problem. Review logs before sharing them.
+
+Unit tests mirror source directories under `tests/unit/`: for example, `src/domain/validate-manifest.ts` is covered by `tests/unit/domain/validate-manifest.test.ts`. Domain-wide type and dependency checks and the shared fixture loader also live under `tests/unit/domain/`.
+
+## Definition validation API
+
+`validateSystemManifest(value, document)` in `src/domain/validate-manifest.ts` and `validateTemplate(value, document)` in `src/domain/validate-template.ts` accept unknown parsed JSON and a caller-supplied logical document identifier. Both return either `{ success: true, value }` or `{ success: false, diagnostics }`. Check `success` before accessing the corresponding property. Diagnostic codes are stable; messages describe the issue and pointers locate it within the document.
+
+These pure validators check closed v1 shapes and document-local constraints without changing the input. Successful values reference the original object: revalidate after mutation. Template validation checks expression syntax in every branch, but does not resolve referenced fields/definitions, infer expression types, detect dependency cycles or calculate results. Structural success alone does not make a definition ready for evaluation. JSON text parsing, filesystem loading and saved-instance validation belong to later phases.
