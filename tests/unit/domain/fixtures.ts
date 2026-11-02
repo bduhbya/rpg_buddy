@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Instance, SystemManifest, Template } from '../../src/domain/documents';
+import type { Instance, SystemManifest, Template } from '../../../src/domain/documents';
 
 /**
  * Test-only access to authored fixtures checked by the Python contract verifier.
@@ -8,7 +8,7 @@ import type { Instance, SystemManifest, Template } from '../../src/domain/docume
  */
 function readAuthoredFixture<T>(path: string): T {
   return JSON.parse(
-    readFileSync(new URL(`../../data_contracts/examples/${path}`, import.meta.url), 'utf8'),
+    readFileSync(new URL(`../../../data_contracts/examples/${path}`, import.meta.url), 'utf8'),
   ) as T;
 }
 
