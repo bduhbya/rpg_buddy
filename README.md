@@ -6,6 +6,8 @@ The project is in early development. The Electron/React application launches, di
 
 See the [roadmap](specs/roadmap.md) for planned work and [technology and architecture](specs/tech-stack.md) for the project's technical direction. Contract documentation and Python verification setup are in [data_contracts/README.md](data_contracts/README.md).
 
+Maintained seed definitions live in [runtime-library](runtime-library/README.md). They cover the approved Rogue Trader core-statistics slice; application loading and installation remain deferred.
+
 ## Setup and development
 
 Use **Node.js 26.13.0 or newer** and **npm 12.2.1 or newer**, as required by `package.json`. Development and packaging are currently verified on Windows x64.
