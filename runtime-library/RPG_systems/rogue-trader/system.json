@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "rogue-trader",
+  "version": "1.0.0",
+  "label": "Rogue Trader \u2014 approved core statistics slice",
+  "source": {
+    "designation": "2009 core rulebook, RT01, Print ID 01",
+    "isbn": "978-1-58994-675-0",
+    "sha256": "AEC28EE72BBE059AD789BF94631BB74CCD2945642620C246DD2D546FA9E52835"
+  },
+  "templates": [
+    {
+      "id": "creature-core",
+      "version": "1.0.0"
+    }
+  ]
+}
