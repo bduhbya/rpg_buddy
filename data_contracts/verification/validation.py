@@ -5,21 +5,21 @@ schema validation; annotations themselves never replace runtime validation.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from datetime import datetime
 from typing import cast
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from .expressions import expression_type, reject_dependency_cycles, trace_statistics
+from .expressions import expression_type, reject_dependency_cycles
 from .helpers import DATA_CONTRACTS, ContractViolation, read_json, require, safe_number
 from .models import (
-    DefinitionReference, Entry, Instance, Manifest, Number, RawDocument, Statistics, Template,
+    DefinitionReference, Entry, Instance, Manifest, RawDocument, Template,
 )
 
 
 class ContractVerifier:
-    """Validate file contracts and trace the bounded acceptance fixtures only."""
+    """Validate schema and semantic integrity without evaluating arithmetic."""
 
     def __init__(self) -> None:
         self.schemas: dict[str, RawDocument] = {}
@@ -65,40 +65,29 @@ class ContractVerifier:
         reject_dependency_cycles(dependencies)
         return template
 
-    def _validated_modifiers(self, template: Template, raw_entries: object) -> dict[str, Number]:
-        """Validate the untrusted entry list before using its typed shape."""
+    def _validate_entries(self, template: Template, raw_entries: object) -> None:
+        """Verify snapshot structure, identities and target compatibility only."""
         self.entries_validator.validate(raw_entries)
         entries = cast(list[Entry], raw_entries)
         entry_ids: set[str] = set()
-        modifiers: dict[str, Number] = {}
+        targets: set[str] = set()
         for entry in entries:
             require(entry['id'] not in entry_ids, f"Duplicate entry ID: {entry['id']}")
             entry_ids.add(entry['id'])
             for effect in entry['effects']:
                 target = effect['target']
                 require(target in template['modifierTargets'], f'Invalid target: {target}')
-                require(target not in modifiers, f'Conflicting effects on {target}')
-                modifiers[target] = safe_number(effect['factor'])
-        return modifiers
-
-    def collect_modifiers(
-        self, template: RawDocument, entries: Sequence[RawDocument],
-    ) -> dict[str, Number]:
-        """Public raw-document boundary used by effect rejection tests."""
-        checked_template = self.validate_template(template)
-        return self._validated_modifiers(checked_template, list(entries))
+                require(target not in targets, f'Conflicting effects on {target}')
+                targets.add(target)
 
     @staticmethod
-    def validate_values(source_values: Mapping[str, object], template: Template) -> Statistics:
+    def validate_values(source_values: Mapping[str, object], template: Template) -> None:
         expected_ids = {field['id'] for field in template['inputs']}
         require(set(source_values) == expected_ids, 'Missing or extra editable fields')
-        values: Statistics = {}
         for field in template['inputs']:
             value = safe_number(source_values[field['id']])
             require(type(value) is int and field['minimum'] <= value <= field['maximum'],
                     f"{field['id']} must be an integer in {field['minimum']}..{field['maximum']}")
-            values[field['id']] = value
-        return values
 
     def validate_instance(
         self, document: RawDocument, raw_template: RawDocument, raw_manifest: RawDocument,
@@ -122,15 +111,5 @@ class ContractVerifier:
             raise ContractViolation(f'Invalid calendar timestamp: {error}') from error
         require(created <= modified, 'Creation must not be later than modification')
         self.validate_values(instance['values'], template)
-        self._validated_modifiers(template, instance['entries'])
+        self._validate_entries(template, instance['entries'])
         return instance
-
-    def calculate(
-        self, template: RawDocument, source_values: Mapping[str, object],
-        entries: Sequence[RawDocument] = (),
-    ) -> Statistics:
-        """Trace sample arithmetic after validation; no production rules API."""
-        checked_template = self.validate_template(template)
-        values = self.validate_values(source_values, checked_template)
-        modifiers = self._validated_modifiers(checked_template, list(entries))
-        return trace_statistics(checked_template, values, modifiers)

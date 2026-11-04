@@ -59,3 +59,7 @@ Templates expose generic derived-statistic modifier targets without enumerating 
 ## Verifier maintenance requirements - 2026-10-29
 
 Keep `python data_contracts/verify_contracts.py`, `ContractTests.test_zero_defaults` and existing VS Code task/launch paths working. Organize verification-only helpers, typed document shapes, semantic checks, bounded expression traces and focused tests into readable modules. Add parameter/return annotations and meaningful TypedDict/Literal contracts; confine Any to untrusted JSON/schema input and deliberately malformed test data. Preserve all 22 current test methods and their scenarios. A static checker must pass for the maintained verifier package. Document that Python checks file contracts and fixture arithmetic only; future production TypeScript behavior must be tested using the same acceptance cases, not maintained as a competing Python engine.
+
+## Phase 10 verification transition
+
+The earlier module-refactor requirements above record the initial Python verifier, including its 22 tests and arithmetic selectors. Phase 10 completed the planned production-engine transition: arithmetic acceptance now lives in TypeScript, and arithmetic-only selectors such as ContractTests.test_zero_defaults are retired. The Python CLI and VS Code paths remain unchanged; retained contract-integrity selectors are documented in [the current verifier guide](../../data_contracts/README.md).

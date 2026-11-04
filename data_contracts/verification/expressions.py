@@ -1,15 +1,13 @@
-"""Bounded arithmetic traces for contract fixtures, not a production engine.
+"""Expression type, reference and cycle checks for authored contract documents.
 
-Keep this limited to the already specified expression subset. New game rules
-belong in data and production TypeScript tests, not Python-specific behavior.
+Arithmetic acceptance is owned by the production TypeScript engine tests.
 """
 from __future__ import annotations
 
-import math
 from collections.abc import Mapping
 
-from .helpers import ContractViolation, require, safe_number
-from .models import Expression, ExpressionType, Number, Statistics, Template
+from .helpers import require, safe_number
+from .models import Expression, ExpressionType
 
 
 def expression_type(
@@ -57,48 +55,3 @@ def reject_dependency_cycles(dependencies: Mapping[str, set[str]]) -> None:
 
     for field_id in dependencies:
         visit(field_id)
-
-
-def trace_statistics(
-    template: Template,
-    source_values: Mapping[str, Number],
-    modifiers: Mapping[str, Number],
-) -> Statistics:
-    """Trace a validated fixture: base formula, then its explicit effect once.
-
-    The local cache is discarded on return. Dependents see final modified values.
-    This function is used only after ContractVerifier has checked the documents.
-    """
-    values = dict(source_values)
-    expressions = {field['id']: field['expression'] for field in template['derived']}
-
-    def field_value(field_id: str) -> Number:
-        if field_id not in values:
-            base_value = safe_number(evaluate_expression(expressions[field_id]))
-            values[field_id] = safe_number(base_value * modifiers.get(field_id, 1))
-        return values[field_id]
-
-    def evaluate_expression(expression: Expression) -> Number | bool:
-        if expression['op'] == 'constant':
-            return safe_number(expression['value'])
-        if expression['op'] == 'field':
-            return field_value(expression['id'])
-        if expression['op'] == 'if':
-            condition = evaluate_expression(expression['condition'])
-            branch = expression['then'] if condition else expression['else']
-            return evaluate_expression(branch)
-        if expression['op'] == 'floor':
-            operand = safe_number(evaluate_expression(expression['value']))
-            return safe_number(math.floor(operand))
-        left = safe_number(evaluate_expression(expression['left']))
-        right = safe_number(evaluate_expression(expression['right']))
-        if expression['op'] == 'equal':
-            return left == right
-        if expression['op'] == 'multiply':
-            return safe_number(left * right)
-        if expression['op'] == 'divide':
-            require(right != 0, 'Division by zero')
-            return safe_number(left / right)
-        raise ContractViolation('Unsupported expression operation')
-
-    return {field['id']: field_value(field['id']) for field in template['derived']}

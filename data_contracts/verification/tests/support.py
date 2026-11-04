@@ -2,7 +2,6 @@
 
 RawDocument is appropriate here because rejection tests must construct invalid
 shapes. Accepted documents are narrowed by ContractVerifier after schema checks.
-Expected results are explicit test facts, not derived from the trace evaluator.
 """
 from __future__ import annotations
 
@@ -13,20 +12,8 @@ from collections.abc import Sequence
 from jsonschema import ValidationError
 
 from ..helpers import DATA_CONTRACTS, ContractViolation, read_json
-from ..models import BinaryOperation, Movement, Number, RawDocument, Statistics
+from ..models import RawDocument
 from ..validation import ContractVerifier
-
-
-def constant(value: object) -> RawDocument:
-    return {'op': 'constant', 'value': value}
-
-
-def field_reference(field_id: str) -> RawDocument:
-    return {'op': 'field', 'id': field_id}
-
-
-def binary(operation: BinaryOperation, left: RawDocument, right: RawDocument) -> RawDocument:
-    return {'op': operation, 'left': left, 'right': right}
 
 
 def trait(entry_id: str, target: str, factor: object = 2) -> RawDocument:
@@ -34,19 +21,6 @@ def trait(entry_id: str, target: str, factor: object = 2) -> RawDocument:
         'id': entry_id, 'category': 'trait', 'label': entry_id,
         'description': 'User-selected feature',
         'effects': [{'op': 'multiply', 'target': target, 'factor': factor}],
-    }
-
-
-def expected_statistics(
-    strength_bonus: Number, toughness_bonus: Number, agility_bonus: Number,
-    movement: Movement,
-) -> Statistics:
-    """movement is Half / Full / Charge / Run, in metres per round."""
-    half_move, full_move, charge_move, run_move = movement
-    return {
-        'strengthBonus': strength_bonus, 'toughnessBonus': toughness_bonus,
-        'agilityBonus': agility_bonus, 'halfMove': half_move, 'fullMove': full_move,
-        'chargeMove': charge_move, 'runMove': run_move,
     }
 
 
@@ -83,14 +57,6 @@ class ContractTestCase(unittest.TestCase):
         self.sheet = copy.deepcopy(self.template)
         self.explorator = copy.deepcopy(self.character)
         self.ork = copy.deepcopy(self.monster)
-
-    def assert_statistics(
-        self, instance: RawDocument, expected: Statistics, template: RawDocument | None = None,
-    ) -> None:
-        chosen_template = self.sheet if template is None else template
-        self.verifier.validate_instance(instance, chosen_template, self.manifest)
-        actual = self.verifier.calculate(chosen_template, instance['values'], instance['entries'])
-        self.assertEqual(actual, expected)
 
     def assert_invalid_instance(self, instance: RawDocument) -> None:
         # Programming errors such as KeyError are not successful rejections.

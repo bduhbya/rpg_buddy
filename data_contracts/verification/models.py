@@ -12,8 +12,6 @@ JsonValue: TypeAlias = None | bool | int | float | str | list['JsonValue'] | dic
 RawDocument: TypeAlias = dict[str, Any]
 ExpressionType: TypeAlias = Literal['number', 'boolean']
 BinaryOperation: TypeAlias = Literal['divide', 'multiply', 'equal']
-Statistics: TypeAlias = dict[str, Number]
-Movement: TypeAlias = tuple[Number, Number, Number, Number]
 
 
 class Metadata(TypedDict, total=False):

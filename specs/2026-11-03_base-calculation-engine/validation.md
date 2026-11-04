@@ -17,9 +17,9 @@ Executed on Windows on 2026-11-04 unless otherwise stated.
 
 Precondition. Use the repository's declared Node/npm versions and installed dependencies from the repository root.
 
-1. Read [calculate-base.ts](../../src/domain/calculate-base.ts). Follow template validation, dependency ordering, full-branch type checking, input validation and evaluation. Observe that failure returns diagnostics before results are exposed.
-2. Run `npm run test:unit -- tests/unit/domain/calculate-base.test.ts`. Expect all 54 cases to pass.
-3. Inspect the first table in [calculate-base.test.ts](../../tests/unit/domain/calculate-base.test.ts). It loads the authored examples through the catalog and exact resolver. Compare the independently stated expectations with the [worked rule examples](../../data_contracts/verification/tests/test_calculations.py). Explorator bonuses are 4/3/3 with movement 3/6/9/18. Ork base bonuses are 5/4/3 with the same movement. Its entry-owned toughness multiplier is Phase 10 work.
+1. Read the [base API wrapper](../../src/domain/calculate-base.ts) and its [shared engine](../../src/domain/calculation-engine.ts). Follow template validation, dependency ordering, full-branch type checking, input validation and evaluation. Observe that failure returns diagnostics before results are exposed.
+2. Run `npm run test:unit -- tests/unit/domain/calculation-engine.test.ts`. Expect all 54 cases to pass.
+3. Inspect the first table in [calculation-engine.test.ts](../../tests/unit/domain/calculation-engine.test.ts). It loads the authored examples through the catalog and exact resolver. Compare the independently stated expectations with the [current effect acceptance](../../tests/unit/domain/calculate-with-entries.test.ts). Phase 10 retired the original Python worked-example tests after migrating their acceptance. Explorator bonuses are 4/3/3 with movement 3/6/9/18. Ork base bonuses are 5/4/3 with the same movement. Its entry-owned toughness multiplier is Phase 10 work.
 4. Inspect the boundary table. Scores 0/9/10/39/40/99 yield bonuses 0/0/1/3/4/9. At zero bonus, movement is 0.5/1/2/3.
 5. Inspect alternate-branch errors and arithmetic failure pointers, then the invalid-input/recovery case. Verify that the next valid call produces fresh results.
 
@@ -36,3 +36,7 @@ The Python tracer remains temporarily for instance-effect acceptance. Phase 10 m
 ## Review correction
 
 The adversarial review identified missing structured cycle participant locations. Corrected DEPENDENCY_CYCLE diagnostics to include related pointers to each participating field ID, once each and excluding any preceding non-cycle fields. The primary pointer still locates the closing reference. Self-cycle, two-field cycle and non-cycle-prefix coverage passed. After this correction, 188 unit tests, TypeScript checking, formatting and git diff --check passed. Desktop and Python checks above were performed before this diagnostic-only correction.
+
+## Phase 10 maintenance note
+
+The walkthrough links and test command above now point to the shared engine tests, where the Phase 9 calculation coverage moved during Phase 10 review. Python arithmetic tracing was retired after equivalent TypeScript effect acceptance passed; the evidence and temporary transition recorded earlier in this document remain historical.
