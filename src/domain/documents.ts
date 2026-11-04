@@ -61,19 +61,22 @@ export interface Template {
   metadata?: Metadata;
 }
 
-/** Factor must later be validated as a positive safe integer. */
+/** Effect-aware calculation validates factor as a positive safe integer. */
 export interface MultiplyEffect {
   op: 'multiply';
   target: string;
   factor: number;
 }
 
+/** Extend this union when the versioned contract gains another effect operation. */
+export type EntryEffect = MultiplyEffect;
+
 export interface Entry {
   id: string;
   category: string;
   label: string;
   description: string;
-  effects: MultiplyEffect[];
+  effects: EntryEffect[];
   source?: string;
   metadata?: Metadata;
 }
