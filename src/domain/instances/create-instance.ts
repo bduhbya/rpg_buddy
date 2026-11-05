@@ -1,10 +1,10 @@
-import { INSTANCE_ROLES } from './documents';
-import type { Instance, InstanceRole } from './documents';
-import type { InMemoryDefinitionCatalog } from './in-memory-definition-catalog';
-import { resolveDefinitions } from './resolve-definitions';
-import type { DefinitionRequest } from './resolve-definitions';
-import { DefinitionChecks } from './validation';
-import type { ValidationResult } from './validation';
+import { INSTANCE_ROLES } from '../documents';
+import type { Instance, InstanceRole } from '../documents';
+import type { InMemoryDefinitionCatalog } from '../definition-processing/in-memory-definition-catalog';
+import { resolveDefinitions } from '../definition-processing/resolve-definitions';
+import type { DefinitionRequest } from '../definition-processing/resolve-definitions';
+import { DefinitionChecks } from '../validation';
+import type { ValidationResult } from '../validation';
 
 export interface CreateInstanceRequest extends DefinitionRequest {
   role: InstanceRole;
@@ -16,7 +16,8 @@ export interface InstanceCreationProviders {
   now(): string;
 }
 
-function validTimestamp(value: unknown): value is string {
+// Check that a timestamp uses the required UTC format and names a real calendar date.
+function isUtcTimestamp(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.\d+)?Z$/.exec(value);
   if (!match || match[0].length !== value.length) return false;
@@ -26,12 +27,12 @@ function validTimestamp(value: unknown): value is string {
 }
 
 /**
- * Creates a blank instance from the defaults of an exact system/template pair.
- * @param catalog Validated in-memory catalog used to resolve the requested definitions.
- * @param request Input to validate, containing exact system and template references and an instance role.
- * @param providers Supplies a fresh instance ID for each creation and a UTC timestamp.
- * @param diagnosticSource Caller-chosen label for the request, such as `new-character-request`.
- * It appears as `document` in diagnostics about the request or provider output.
+ * Create independent source state from the defaults of an exact system and template pair.
+ * @param catalog Validated catalog that supplies the requested definitions.
+ * @param request Untrusted request with exact system and template references and an instance role.
+ * @param providers Supplies a fresh instance ID and a UTC timestamp after definition resolution succeeds.
+ * @param diagnosticSource Logical request label used in diagnostics about the request or provider output.
+ * @returns A new instance with default input values and empty entries, or diagnostics.
  */
 export function createInstance(
   catalog: InMemoryDefinitionCatalog,
@@ -73,7 +74,7 @@ export function createInstance(
     checks.issue('/createdAt', 'The UTC time provider failed.', 'INVALID_VALUE');
     return checks.result<Instance>(undefined);
   }
-  if (!validTimestamp(timestamp)) {
+  if (!isUtcTimestamp(timestamp)) {
     checks.issue(
       '/createdAt',
       'Expected a real calendar UTC timestamp with seconds ending in Z.',
@@ -82,13 +83,14 @@ export function createInstance(
     return checks.result<Instance>(undefined);
   }
 
-  const template = resolved.value.template.value;
+  const { system, template: locatedTemplate } = resolved.value;
+  const template = locatedTemplate.value;
   return checks.result<Instance>({
     schemaVersion: 1,
     id,
     entityType: template.entityType,
     role: input.role,
-    system: { id: resolved.value.system.value.id, version: resolved.value.system.value.version },
+    system: { id: system.value.id, version: system.value.version },
     template: { id: template.id, version: template.version },
     displayName: template.defaultDisplayName,
     values: Object.fromEntries(template.inputs.map((field) => [field.id, field.default])),

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { validateSystemManifest } from '../../../src/domain/validate-manifest';
+import { validateSystemManifest } from '../../../src/domain/definition-processing/validate-manifest';
 import { loadFixtures } from './fixtures';
 
 const document = 'manifest-under-review';

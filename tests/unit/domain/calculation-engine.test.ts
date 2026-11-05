@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { calculateDerived } from '../../../src/domain/calculation-engine';
-import { createInMemoryDefinitionCatalog } from '../../../src/domain/in-memory-definition-catalog';
-import { resolveDefinitions } from '../../../src/domain/resolve-definitions';
-import type { Expression } from '../../../src/domain/expressions';
+import { calculateDerived } from '../../../src/domain/calculation/calculation-engine';
+import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-processing/in-memory-definition-catalog';
+import { resolveDefinitions } from '../../../src/domain/definition-processing/resolve-definitions';
+import type { Expression } from '../../../src/domain/definitions/expressions';
 import { loadFixtures } from './fixtures';
 
 const constant = (value: number): Expression => ({ op: 'constant', value });

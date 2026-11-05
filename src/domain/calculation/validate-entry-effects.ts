@@ -1,8 +1,8 @@
-import type { EntryEffect, Template } from './documents';
+import type { EntryEffect, Template } from '../documents';
 import { validateEffectOperation } from './effect-operations';
-import type { LocatedDefinition } from './in-memory-definition-catalog';
-import { childPointer, DefinitionChecks } from './validation';
-import type { ValidationResult } from './validation';
+import type { LocatedDefinition } from '../definition-processing/in-memory-definition-catalog';
+import { childPointer, DefinitionChecks } from '../validation';
+import type { ValidationResult } from '../validation';
 
 export interface LocatedEntryEffect {
   effect: EntryEffect;
@@ -11,8 +11,10 @@ export interface LocatedEntryEffect {
 }
 
 /**
- * Validate entry snapshots and their effects, then index validated effects by target.
- * Internal calculation helper; the caller must first validate template structure.
+ * Validate entry snapshots and index their effects by declared target. Each target accepts at most one effect.
+ * @param template Structurally validated template that declares the allowed modifier targets.
+ * @param entries Located entry array. The document label and array-relative pointers locate diagnostics.
+ * @returns Validated effects indexed by target field ID, or diagnostics.
  */
 export function validateEntryEffects(
   template: Template,

@@ -1,7 +1,12 @@
-import { childPointer } from './validation';
-import type { DefinitionChecks } from './validation';
+import { childPointer } from '../validation';
+import type { DefinitionChecks } from '../validation';
 
-/** Check syntax in every branch; no reference resolution, type inference or evaluation. */
+/**
+ * Check the closed expression syntax in every branch. Reference resolution and type checking happen during calculation.
+ * @param value Parsed expression node to check.
+ * @param pointer JSON Pointer to the node within the template.
+ * @param checks Call-local validator that collects syntax diagnostics.
+ */
 export function checkExpression(value: unknown, pointer: string, checks: DefinitionChecks): void {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     checks.issue(pointer, 'Expected an expression object.');

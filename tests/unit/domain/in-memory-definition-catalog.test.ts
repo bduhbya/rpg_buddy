@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { createInMemoryDefinitionCatalog } from '../../../src/domain/in-memory-definition-catalog';
-import type { DefinitionReference } from '../../../src/domain/common';
+import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-processing/in-memory-definition-catalog';
+import type { DefinitionReference } from '../../../src/domain/definitions/common';
 import { loadFixtures } from './fixtures';
 
 const location = { document: 'request', pointer: '/template' };

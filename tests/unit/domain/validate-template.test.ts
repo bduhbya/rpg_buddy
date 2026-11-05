@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { validateTemplate } from '../../../src/domain/validate-template';
+import { validateTemplate } from '../../../src/domain/definition-processing/validate-template';
 import type { Template } from '../../../src/domain/documents';
 import { loadFixtures } from './fixtures';
 

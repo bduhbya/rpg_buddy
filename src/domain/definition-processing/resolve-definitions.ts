@@ -1,8 +1,8 @@
-import type { DefinitionReference } from './common';
-import type { SystemManifest, Template } from './documents';
+import type { DefinitionReference } from '../definitions/common';
+import type { SystemManifest, Template } from '../documents';
 import type { InMemoryDefinitionCatalog, LocatedDefinition } from './in-memory-definition-catalog';
-import { DefinitionChecks } from './validation';
-import type { ValidationResult } from './validation';
+import { DefinitionChecks } from '../validation';
+import type { ValidationResult } from '../validation';
 
 export interface DefinitionRequest {
   system: DefinitionReference;
@@ -14,7 +14,13 @@ export interface ResolvedDefinitions {
   template: LocatedDefinition<Template>;
 }
 
-/** Resolve one exact pair; unrelated manifest members need not be available. */
+/**
+ * Resolve an exact system and template pair and verify that they declare compatible references.
+ * @param catalog Validated catalog that supplies both definitions.
+ * @param request Untrusted request with exact system and template references, each containing an ID and version.
+ * @param document Logical request label used to locate diagnostics about the references.
+ * @returns Both located definitions on success, or diagnostics if the request or pair fails validation.
+ */
 export function resolveDefinitions(
   catalog: InMemoryDefinitionCatalog,
   request: unknown,
@@ -37,10 +43,13 @@ export function resolveDefinitions(
   if (!template.success) return template;
 
   const manifest = system.value;
-  const sheet = template.value;
+  const locatedTemplate = template.value;
+  // A catalog hit proves availability. The manifest must also declare this exact template.
   if (
     !manifest.value.templates.some(
-      (reference) => reference.id === sheet.value.id && reference.version === sheet.value.version,
+      (reference) =>
+        reference.id === locatedTemplate.value.id &&
+        reference.version === locatedTemplate.value.version,
     )
   ) {
     checks.issue(
@@ -50,16 +59,16 @@ export function resolveDefinitions(
     );
     checks.diagnostics[checks.diagnostics.length - 1].related = [
       { document: manifest.document, pointer: '/templates' },
-      { document: sheet.document, pointer: '' },
+      { document: locatedTemplate.document, pointer: '' },
     ];
   }
   if (
-    sheet.value.system.id !== manifest.value.id ||
-    sheet.value.system.version !== manifest.value.version
+    locatedTemplate.value.system.id !== manifest.value.id ||
+    locatedTemplate.value.system.version !== manifest.value.version
   ) {
     checks.diagnostics.push({
       code: 'IDENTITY_MISMATCH',
-      document: sheet.document,
+      document: locatedTemplate.document,
       pointer: '/system',
       message: 'Template system reference must match the requested exact system identity/version.',
       related: [
@@ -68,5 +77,5 @@ export function resolveDefinitions(
       ],
     });
   }
-  return checks.result<ResolvedDefinitions>({ system: manifest, template: sheet });
+  return checks.result<ResolvedDefinitions>({ system: manifest, template: locatedTemplate });
 }

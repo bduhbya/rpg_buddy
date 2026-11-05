@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { calculateBase } from '../../../src/domain/calculate-base';
-import { calculateWithEntries } from '../../../src/domain/calculate-with-entries';
+import { calculateBase } from '../../../src/domain/calculation/calculate-base';
+import { calculateWithEntries } from '../../../src/domain/calculation/calculate-with-entries';
 import type { Entry, Instance, Template } from '../../../src/domain/documents';
 import { loadFixtures } from './fixtures';
 

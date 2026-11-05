@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
-import { createInstance } from '../../../src/domain/create-instance';
-import { createInMemoryDefinitionCatalog } from '../../../src/domain/in-memory-definition-catalog';
+import { createInstance } from '../../../src/domain/instances/create-instance';
+import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-processing/in-memory-definition-catalog';
 import { loadFixtures } from './fixtures';
 
 const timestamp = '2026-11-04T16:30:00.123Z';

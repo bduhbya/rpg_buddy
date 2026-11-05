@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateEntryEffects } from '../../../src/domain/validate-entry-effects';
+import { validateEntryEffects } from '../../../src/domain/calculation/validate-entry-effects';
 import { loadFixtures } from './fixtures';
 import { multiplyEffect, entryFixture } from './effect-fixtures';
 
