@@ -28,6 +28,10 @@ flowchart TD
     C --> R["resolveDefinitions<br/>resolve-definitions.ts"]
     I[Exact system and template references] --> R
     R --> RT[Resolved template]
+    R --> CI["Create source state<br/>create-instance.ts"]
+    P[Caller ID and UTC time providers] --> CI
+    CI --> V
+    CI --> N
     RT --> B["calculateBase<br/>calculate-base.ts"]
     RT --> W["calculateWithEntries<br/>calculate-with-entries.ts"]
     V[Complete instance input values] --> B
@@ -51,6 +55,8 @@ flowchart TD
 Each public operation returns a discriminated result. Check `success` before reading `value` or `diagnostics`. A failure exposes diagnostics without partial results. Diagnostics identify a logical document and an RFC 6901 JSON Pointer, with related locations where useful.
 
 The catalog validates the whole supplied bundle before exposing a usable index. It snapshots definitions and returns fresh copies from lookups. The resolver checks exact version availability, manifest membership and agreement between the requested system and the template's system reference.
+
+`createInstance` validates the request and resolves its exact definitions before calling the injected ID and UTC time providers. The caller supplies a fresh ID for each creation. The domain checks its format and uses a single validated timestamp for both creation and modification. Each result owns its reference objects, input defaults and empty entries array. The caller can pass those inputs and entries to calculation as a separate operation.
 
 Calculation receives the resolved template and a separate value map. It revalidates the mutable template copy, checks the dependency graph, checks types throughout every expression branch, and validates all inputs before evaluation. The result contains only derived values. Each call uses a fresh cache and preserves the caller's data.
 
@@ -101,6 +107,7 @@ These calls do not validate a complete saved instance. The example uses only its
 | [validate-expression.ts](validate-expression.ts)                   | Closed expression syntax, including every conditional branch.                                                                |
 | [in-memory-definition-catalog.ts](in-memory-definition-catalog.ts) | Validated definition indexing, snapshots, exact lookups and conflict checks.                                                 |
 | [resolve-definitions.ts](resolve-definitions.ts)                   | Compatibility checks across the requested system and template.                                                               |
+| [create-instance.ts](create-instance.ts)                           | Initializes independent source state from an exact definition pair and caller-provided ID and time.                          |
 | [plan-calculations.ts](plan-calculations.ts)                       | Reference discovery, cycle detection and dependency order for a structurally validated template.                             |
 | [calculate-base.ts](calculate-base.ts)                             | Full base-calculation validation and evaluation over a template and supplied inputs.                                         |
 | [calculate-with-entries.ts](calculate-with-entries.ts)             | Effect-aware calculation over a template, inputs and instance-owned entry snapshots.                                         |
@@ -135,7 +142,8 @@ Domain modules depend on other domain modules. Filesystem access, Electron, Reac
 | Definition structure validation, in-memory catalog and exact resolution | Implemented.                                                                         |
 | Dependency analysis and base expression evaluation                      | Implemented.                                                                         |
 | Instance-entry effect application                                       | Implemented; Phase 10 acceptance and verifier migration are complete.                |
-| Instance creation, editing and complete saved-instance validation       | Planned in later roadmap phases.                                                     |
+| In-memory instance creation                                             | Implemented.                                                                         |
+| Instance editing and complete saved-instance validation                 | Planned in later roadmap phases.                                                     |
 | Library discovery, selected-system loading and persistence              | Planned in later roadmap phases.                                                     |
 | Reusable feature library and selection provenance                       | Requires its own future specification. Current entries are instance-owned snapshots. |
 

@@ -81,7 +81,9 @@ export interface Entry {
   metadata?: Metadata;
 }
 
-export type InstanceRole = 'character' | 'monster';
+/** Keep the v1 role list in sync with data_contracts/v1/instance.schema.json. */
+export const INSTANCE_ROLES = ['character', 'monster'] as const;
+export type InstanceRole = (typeof INSTANCE_ROLES)[number];
 
 /** Editable source data only; derived results are not persisted here. */
 export interface Instance {

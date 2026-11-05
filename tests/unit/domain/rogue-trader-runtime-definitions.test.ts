@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { calculateWithEntries } from '../../../src/domain/calculate-with-entries';
+import { createInstance } from '../../../src/domain/create-instance';
 import type { Instance } from '../../../src/domain/documents';
 import { createInMemoryDefinitionCatalog } from '../../../src/domain/in-memory-definition-catalog';
 import { resolveDefinitions } from '../../../src/domain/resolve-definitions';
@@ -106,14 +107,68 @@ describe('Rogue Trader runtime definitions', () => {
     expect(readRuntime('system.json')).toEqual(loadFixtures().manifest);
   });
 
-  it('evaluates unfilled defaults without inventing generated scores', () => {
-    const instance = loadFixtures().character;
-    const template = resolvedTemplate(instance).value;
-    instance.values = Object.fromEntries(template.inputs.map((field) => [field.id, field.default]));
-    expect(calculate(instance)).toEqual({
-      success: true,
-      value: statistics(0, 0, 0, [0.5, 1, 2, 3]),
+  it('creates independent blank sheets for both roles and calculates their defaults', () => {
+    const catalog = runtimeCatalog();
+    const references = {
+      system: { id: 'rogue-trader', version: '1.0.0' },
+      template: { id: 'creature-core', version: '1.0.0' },
+    };
+    const defaults = {
+      weaponSkill: 0,
+      ballisticSkill: 0,
+      strength: 0,
+      toughness: 0,
+      agility: 0,
+      intelligence: 0,
+      perception: 0,
+      willpower: 0,
+      fellowship: 0,
+    };
+    const timestamp = '2026-11-05T15:00:00Z';
+    let nextId = 0;
+    const providers = { newId: () => `blank-${++nextId}`, now: () => timestamp };
+    const create = (role: Instance['role'], expectedId: string) => {
+      const result = createInstance(catalog, { ...references, role }, providers, 'blank-sheet');
+      expect(result).toEqual({
+        success: true,
+        value: {
+          schemaVersion: 1,
+          ...references,
+          id: expectedId,
+          entityType: 'creature',
+          role,
+          displayName: 'Creature',
+          values: defaults,
+          entries: [],
+          createdAt: timestamp,
+          modifiedAt: timestamp,
+        },
+      });
+      if (!result.success) throw new Error(JSON.stringify(result.diagnostics));
+      return result.value;
+    };
+
+    const character = create('character', 'blank-1');
+    const monster = create('monster', 'blank-2');
+    // Check that changes to one instance do not leak into another.
+    character.values.agility = 40;
+    character.entries.push({
+      id: 'custom',
+      category: 'custom',
+      label: 'Custom',
+      description: '',
+      effects: [],
     });
+    expect(monster.values).toEqual(defaults);
+    expect(monster.entries).toEqual([]);
+    const anotherCharacter = create('character', 'blank-3');
+
+    for (const instance of [monster, anotherCharacter]) {
+      expect(calculate(instance)).toEqual({
+        success: true,
+        value: statistics(0, 0, 0, [0.5, 1, 2, 3]),
+      });
+    }
   });
 
   it('resolves both roles and matches independent worked and edited results', () => {
