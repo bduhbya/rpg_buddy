@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { calculateBase } from '../../../src/domain/calculate-base';
+import { calculateBase } from '../../../src/domain/calculation/calculate-base';
 import { loadFixtures } from './fixtures';
 
 it('calculateBase returns base-only results for an instance with authored effects', () => {

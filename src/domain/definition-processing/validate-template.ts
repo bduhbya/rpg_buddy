@@ -1,8 +1,9 @@
-import type { Template } from './documents';
+import type { Template } from '../documents';
 import { checkExpression } from './validate-expression';
-import { childPointer, DefinitionChecks } from './validation';
-import type { JsonObject, ValidationResult } from './validation';
+import { childPointer, DefinitionChecks } from '../validation';
+import type { JsonObject, ValidationResult } from '../validation';
 
+// Check shared field properties, then validate input bounds or derived expression syntax.
 function checkField(
   field: JsonObject,
   pointer: string,
@@ -43,7 +44,12 @@ function checkField(
   }
 }
 
-/** Structural success does not establish expression semantics or definition availability. */
+/**
+ * Validate a parsed v1 template's structure, local invariants, and expression syntax.
+ * @param value Parsed template data to check.
+ * @param document Logical document label attached to diagnostics.
+ * @returns The validated input or diagnostics. Calculation separately checks expression semantics.
+ */
 export function validateTemplate(value: unknown, document: string): ValidationResult<Template> {
   const checks = new DefinitionChecks(document);
   // Establish the root shape before reading document properties.
@@ -80,6 +86,7 @@ export function validateTemplate(value: unknown, document: string): ValidationRe
   // Inputs and derived fields share one ID namespace; retain first locations for diagnostics.
   const fields = new Map<string, string>();
   const derivedIds = new Set<string>();
+  // Record the first declaration so a duplicate can point back to it.
   const registerId = (id: unknown, pointer: string, seen: Map<string, string>) => {
     if (typeof id !== 'string') return;
     const previous = seen.get(id);

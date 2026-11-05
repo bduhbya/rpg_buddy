@@ -1,10 +1,10 @@
-import type { DefinitionReference } from './common';
-import type { Diagnostic, DiagnosticLocation } from './diagnostics';
-import type { SystemManifest, Template } from './documents';
+import type { DefinitionReference } from '../definitions/common';
+import type { Diagnostic, DiagnosticLocation } from '../definitions/diagnostics';
+import type { SystemManifest, Template } from '../documents';
 import { validateSystemManifest } from './validate-manifest';
 import { validateTemplate } from './validate-template';
-import { DefinitionChecks } from './validation';
-import type { ValidationResult } from './validation';
+import { DefinitionChecks } from '../validation';
+import type { ValidationResult } from '../validation';
 
 export interface ParsedDefinition {
   document: string;
@@ -32,7 +32,12 @@ export interface InMemoryDefinitionCatalog {
 type Definition = SystemManifest | Template;
 type Index<T> = Map<string, Map<string, LocatedDefinition<T>>>;
 
-/** JSON object order is immaterial; array order and all property values matter. */
+// Template IDs are scoped to a system. Exact system version compatibility is checked by the resolver.
+function templateIdentity(systemId: string, templateId: string): string {
+  return JSON.stringify([systemId, templateId]);
+}
+
+// Compare JSON content independently of object key order while preserving array order.
 function sameContent(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object')
@@ -54,6 +59,7 @@ function sameContent(left: unknown, right: unknown): boolean {
   );
 }
 
+// Keep the first entry for an exact version and report duplicates with conflicting content.
 function register<T extends Definition>(
   index: Index<T>,
   identity: string,
@@ -78,6 +84,7 @@ function register<T extends Definition>(
   }
 }
 
+// Return a copy of the exact match or distinguish an unknown identity from a missing version.
 function lookup<T>(
   index: Index<T>,
   identity: string,
@@ -102,15 +109,17 @@ function lookup<T>(
 }
 
 /**
- * Atomically validate and snapshot parsed JSON-compatible definitions.
- * Construction checks local structure/conflicts, not cross-document availability.
+ * Validate and snapshot a bundle of parsed definitions. Construction checks local structure and conflicting duplicates. Resolution checks compatibility between documents.
+ * @param manifests Parsed system manifests, each with its logical document label.
+ * @param templates Parsed templates, each with its logical document label.
+ * @returns A catalog whose exact lookups return independent copies, or diagnostics for an invalid bundle.
  */
 export function createInMemoryDefinitionCatalog(
   manifests: readonly ParsedDefinition[],
   templates: readonly ParsedDefinition[],
 ): ValidationResult<InMemoryDefinitionCatalog> {
   const systems: Index<SystemManifest> = new Map();
-  const sheets: Index<Template> = new Map();
+  const templateIndex: Index<Template> = new Map();
   const diagnostics: Diagnostic[] = [];
   for (const entry of manifests) {
     const result = validateSystemManifest(entry.value, entry.document);
@@ -128,8 +137,8 @@ export function createInMemoryDefinitionCatalog(
     if (!result.success) diagnostics.push(...result.diagnostics);
     else
       register(
-        sheets,
-        JSON.stringify([result.value.system.id, result.value.id]),
+        templateIndex,
+        templateIdentity(result.value.system.id, result.value.id),
         { document: entry.document, value: structuredClone(result.value) },
         diagnostics,
       );
@@ -153,7 +162,7 @@ export function createInMemoryDefinitionCatalog(
         checks.reference(reference, location.pointer);
         const valid = checks.result<DefinitionReference>(reference);
         if (!valid.success) return valid;
-        return lookup(sheets, JSON.stringify([systemId, reference.id]), reference, location);
+        return lookup(templateIndex, templateIdentity(systemId, reference.id), reference, location);
       },
     },
   };

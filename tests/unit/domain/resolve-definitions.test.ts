@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { createInMemoryDefinitionCatalog } from '../../../src/domain/in-memory-definition-catalog';
-import { resolveDefinitions } from '../../../src/domain/resolve-definitions';
+import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-processing/in-memory-definition-catalog';
+import { resolveDefinitions } from '../../../src/domain/definition-processing/resolve-definitions';
 import { loadFixtures } from './fixtures';
 
 function setup() {

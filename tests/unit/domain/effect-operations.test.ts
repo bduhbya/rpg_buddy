@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyEffectOperation,
   validateEffectOperation,
-} from '../../../src/domain/effect-operations';
+} from '../../../src/domain/calculation/effect-operations';
 import { DefinitionChecks } from '../../../src/domain/validation';
 import { multiplyEffect } from './effect-fixtures';
 

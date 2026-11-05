@@ -1,9 +1,14 @@
-import type { SystemManifest } from './documents';
-import { SOURCE_SHA256_PATTERN } from './definition-patterns';
-import { childPointer, DefinitionChecks } from './validation';
-import type { ValidationResult } from './validation';
+import type { SystemManifest } from '../documents';
+import { SOURCE_SHA256_PATTERN } from '../definitions/definition-patterns';
+import { childPointer, DefinitionChecks } from '../validation';
+import type { ValidationResult } from '../validation';
 
-/** Validates parsed v1 structure and local invariants, without resolving templates. */
+/**
+ * Validate a parsed v1 manifest and its document-local invariants.
+ * @param value Parsed data to check, including the list of exact template references.
+ * @param document Logical document label attached to diagnostics.
+ * @returns The validated input or diagnostics. Template availability is checked during resolution.
+ */
 export function validateSystemManifest(
   value: unknown,
   document: string,

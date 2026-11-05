@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Expression } from '../../../src/domain/expressions';
-import { planCalculations } from '../../../src/domain/plan-calculations';
+import type { Expression } from '../../../src/domain/definitions/expressions';
+import { planCalculations } from '../../../src/domain/calculation/plan-calculations';
 import { loadFixtures } from './fixtures';
 
 function plan(expressions: Record<string, Expression>) {

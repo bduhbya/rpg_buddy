@@ -1,14 +1,15 @@
-import type { Expression } from './expressions';
-import type { Template } from './documents';
-import type { LocatedDefinition } from './in-memory-definition-catalog';
+import type { Expression } from '../definitions/expressions';
+import type { Template } from '../documents';
+import type { LocatedDefinition } from '../definition-processing/in-memory-definition-catalog';
 import { planCalculations } from './plan-calculations';
-import { validateTemplate } from './validate-template';
+import { validateTemplate } from '../definition-processing/validate-template';
 import { validateEntryEffects } from './validate-entry-effects';
 import { applyEffectOperation } from './effect-operations';
-import { childPointer, DefinitionChecks } from './validation';
-import type { ValidationResult } from './validation';
+import { childPointer, DefinitionChecks } from '../validation';
+import type { ValidationResult } from '../validation';
 
-function checkType(
+// Check operand types recursively, including both branches of a conditional.
+function checkExpressionType(
   expression: Expression,
   expected: 'number' | 'boolean',
   pointer: string,
@@ -19,23 +20,24 @@ function checkType(
     checks.issue(pointer, `Expected ${expected} expression, received ${actual}.`, 'TYPE_MISMATCH');
   switch (expression.op) {
     case 'floor':
-      checkType(expression.value, 'number', `${pointer}/value`, checks);
+      checkExpressionType(expression.value, 'number', `${pointer}/value`, checks);
       break;
     case 'divide':
     case 'multiply':
     case 'equal':
-      checkType(expression.left, 'number', `${pointer}/left`, checks);
-      checkType(expression.right, 'number', `${pointer}/right`, checks);
+      checkExpressionType(expression.left, 'number', `${pointer}/left`, checks);
+      checkExpressionType(expression.right, 'number', `${pointer}/right`, checks);
       break;
     case 'if':
-      checkType(expression.condition, 'boolean', `${pointer}/condition`, checks);
-      checkType(expression.then, 'number', `${pointer}/then`, checks);
-      checkType(expression.else, 'number', `${pointer}/else`, checks);
+      checkExpressionType(expression.condition, 'boolean', `${pointer}/condition`, checks);
+      checkExpressionType(expression.then, 'number', `${pointer}/then`, checks);
+      checkExpressionType(expression.else, 'number', `${pointer}/else`, checks);
       break;
   }
 }
 
-function evaluate(
+// Evaluate against known field values, evaluating only the selected conditional branch.
+function evaluateExpression(
   expression: Expression,
   pointer: string,
   values: Map<string, number>,
@@ -49,20 +51,25 @@ function evaluate(
     case 'field':
       return values.get(expression.id);
     case 'if': {
-      const condition = evaluate(expression.condition, `${pointer}/condition`, values, checks);
+      const condition = evaluateExpression(
+        expression.condition,
+        `${pointer}/condition`,
+        values,
+        checks,
+      );
       if (condition === undefined) return undefined;
       const branch = condition ? 'then' : 'else';
-      return evaluate(expression[branch], `${pointer}/${branch}`, values, checks);
+      return evaluateExpression(expression[branch], `${pointer}/${branch}`, values, checks);
     }
     case 'floor': {
-      const operand = evaluate(expression.value, `${pointer}/value`, values, checks);
+      const operand = evaluateExpression(expression.value, `${pointer}/value`, values, checks);
       if (operand === undefined) return undefined;
       result = Math.floor(operand as number);
       break;
     }
     default: {
-      const left = evaluate(expression.left, `${pointer}/left`, values, checks);
-      const right = evaluate(expression.right, `${pointer}/right`, values, checks);
+      const left = evaluateExpression(expression.left, `${pointer}/left`, values, checks);
+      const right = evaluateExpression(expression.right, `${pointer}/right`, values, checks);
       if (left === undefined || right === undefined) return undefined;
       if (expression.op === 'equal') return left === right;
       if (expression.op === 'divide' && right === 0) {
@@ -91,10 +98,11 @@ function evaluate(
 }
 
 /**
- * Shared implementation for base-only and effect-aware derived calculations.
- * Revalidates the template because callers may have changed a resolved copy.
- * Inputs are located separately so diagnostics identify their requesting document.
- * Each call owns its cache. Neither definitions nor supplied values are changed.
+ * Run the shared calculation pipeline. Revalidate the caller's template, then compute each derived field in dependency order using a fresh cache.
+ * @param template Located template to validate and evaluate.
+ * @param sourceValues Located input map containing exactly the template's declared inputs.
+ * @param entries Located entry snapshots to validate and apply. Omit for base-only calculation.
+ * @returns Derived values keyed by field ID, or diagnostics without partial values.
  */
 export function calculateDerived(
   template: LocatedDefinition<Template>,
@@ -103,16 +111,16 @@ export function calculateDerived(
 ): ValidationResult<Record<string, number>> {
   const validated = validateTemplate(template.value, template.document);
   if (!validated.success) return validated;
-  const planned = planCalculations(template);
-  if (!planned.success) return planned;
-  const effects = validateEntryEffects(
+  const evaluationOrder = planCalculations(template);
+  if (!evaluationOrder.success) return evaluationOrder;
+  const effectsByTarget = validateEntryEffects(
     template.value,
     entries ?? { document: template.document, value: [] },
   );
-  if (!effects.success) return effects;
+  if (!effectsByTarget.success) return effectsByTarget;
   const checks = new DefinitionChecks(template.document);
   template.value.derived.forEach((field, index) =>
-    checkType(field.expression, 'number', `/derived/${index}/expression`, checks),
+    checkExpressionType(field.expression, 'number', `/derived/${index}/expression`, checks),
   );
   const inputChecks = new DefinitionChecks(sourceValues.document);
   const values = new Map<string, number>();
@@ -146,19 +154,16 @@ export function calculateDerived(
   }
   checks.diagnostics.push(...inputChecks.diagnostics);
   if (checks.diagnostics.length) return checks.result({});
-  const indices = new Map(template.value.derived.map(({ id }, index) => [id, index]));
+  const declarationIndices = new Map(template.value.derived.map(({ id }, index) => [id, index]));
   const results: Record<string, number> = {};
-  for (const field of planned.value) {
-    let value = evaluate(
-      field.expression,
-      `/derived/${indices.get(field.id)}/expression`,
-      values,
-      checks,
-    );
-    if (value === undefined) return checks.result({});
-    const effect = effects.value.get(field.id);
+  for (const field of evaluationOrder.value) {
+    const expressionPointer = `/derived/${declarationIndices.get(field.id)}/expression`;
+    const baseValue = evaluateExpression(field.expression, expressionPointer, values, checks);
+    if (baseValue === undefined) return checks.result({});
+    let finalValue = baseValue as number;
+    const effect = effectsByTarget.value.get(field.id);
     if (effect) {
-      const modified = applyEffectOperation(value as number, effect.effect);
+      const modified = applyEffectOperation(finalValue, effect.effect);
       if (
         !Number.isFinite(modified) ||
         (Number.isInteger(modified) && !Number.isSafeInteger(modified))
@@ -174,18 +179,19 @@ export function calculateDerived(
               related: [
                 {
                   document: template.document,
-                  pointer: `/derived/${indices.get(field.id)}/expression`,
+                  pointer: expressionPointer,
                 },
               ],
             },
           ],
         };
       }
-      value = modified === 0 ? 0 : modified;
+      finalValue = modified === 0 ? 0 : modified;
     }
-    values.set(field.id, value as number);
+    // Downstream field references read the value after effects.
+    values.set(field.id, finalValue);
     Object.defineProperty(results, field.id, {
-      value,
+      value: finalValue,
       enumerable: true,
       writable: true,
       configurable: true,

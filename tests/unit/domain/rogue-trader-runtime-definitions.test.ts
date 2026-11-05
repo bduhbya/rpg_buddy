@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { calculateWithEntries } from '../../../src/domain/calculate-with-entries';
-import { createInstance } from '../../../src/domain/create-instance';
+import { calculateWithEntries } from '../../../src/domain/calculation/calculate-with-entries';
+import { createInstance } from '../../../src/domain/instances/create-instance';
 import type { Instance } from '../../../src/domain/documents';
-import { createInMemoryDefinitionCatalog } from '../../../src/domain/in-memory-definition-catalog';
-import { resolveDefinitions } from '../../../src/domain/resolve-definitions';
+import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-processing/in-memory-definition-catalog';
+import { resolveDefinitions } from '../../../src/domain/definition-processing/resolve-definitions';
 import { entryFixture, multiplyEffect } from './effect-fixtures';
 import { loadFixtures } from './fixtures';
 

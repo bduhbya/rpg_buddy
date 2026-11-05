@@ -1,17 +1,21 @@
-import type { Diagnostic, DiagnosticCode } from './diagnostics';
+import type { Diagnostic, DiagnosticCode } from './definitions/diagnostics';
 import {
   DEFINITION_VERSION_PATTERN,
   FIELD_ID_PATTERN,
   NONBLANK_TEXT_PATTERN,
   SLUG_PATTERN,
-} from './definition-patterns';
+} from './definitions/definition-patterns';
 
 export type ValidationResult<T> =
   { success: true; value: T } | { success: false; diagnostics: [Diagnostic, ...Diagnostic[]] };
 
 export type JsonObject = Record<string, unknown>;
 
-/** Escape one RFC 6901 segment, including unknown property names. */
+/**
+ * Append an escaped path segment to an RFC 6901 JSON Pointer.
+ * @param parent Existing pointer, or an empty string for the document root.
+ * @param key Property name or array index to append.
+ */
 export function childPointer(parent: string, key: string | number): string {
   return `${parent}/${String(key).replaceAll('~', '~0').replaceAll('/', '~1')}`;
 }
@@ -22,6 +26,7 @@ export class DefinitionChecks {
 
   constructor(readonly document: string) {}
 
+  // Record a diagnostic with this validation call's document label.
   issue(pointer: string, message: string, code: DiagnosticCode = 'INVALID_STRUCTURE'): void {
     this.diagnostics.push({ code, document: this.document, pointer, message });
   }
@@ -50,6 +55,7 @@ export class DefinitionChecks {
     return true;
   }
 
+  // Check a string against the expected pattern and optional length limit.
   text(
     value: unknown,
     pointer: string,
@@ -68,10 +74,12 @@ export class DefinitionChecks {
     }
   }
 
+  // Check an identifier used by systems, templates, and instances.
   slug(value: unknown, pointer: string): void {
     this.text(value, pointer, SLUG_PATTERN, 64);
   }
 
+  // Check the identifier syntax shared by field declarations and references.
   fieldId(value: unknown, pointer: string): void {
     this.text(value, pointer, FIELD_ID_PATTERN, 64);
   }
@@ -96,6 +104,7 @@ export class DefinitionChecks {
     return true;
   }
 
+  // Check each element of an array for nonblank text.
   texts(value: unknown, pointer: string, minimum = 0): void {
     if (this.array(value, pointer, minimum)) {
       value.forEach((item, index) => this.text(item, childPointer(pointer, index)));
@@ -113,10 +122,12 @@ export class DefinitionChecks {
     }
   }
 
+  // Check the version syntax used in definitions and their references.
   version(value: unknown, pointer: string): void {
     this.text(value, pointer, DEFINITION_VERSION_PATTERN);
   }
 
+  // Check a closed exact reference and validate its ID and version.
   reference(value: unknown, pointer: string): value is JsonObject {
     if (!this.object(value, pointer, ['id', 'version'])) return false;
     this.slug(value.id, childPointer(pointer, 'id'));
@@ -124,6 +135,7 @@ export class DefinitionChecks {
     return true;
   }
 
+  // Narrow to an array while recording any minimum-length violation.
   array(value: unknown, pointer: string, minimum = 0): value is unknown[] {
     if (!Array.isArray(value)) {
       this.issue(pointer, 'Expected an array.');
@@ -133,6 +145,7 @@ export class DefinitionChecks {
     return true;
   }
 
+  // Reject an unsupported schema version when the property is present.
   schemaVersion(value: JsonObject): void {
     if (Object.hasOwn(value, 'schemaVersion') && value.schemaVersion !== 1) {
       this.issue(
@@ -143,6 +156,7 @@ export class DefinitionChecks {
     }
   }
 
+  // Return accumulated diagnostics or expose the value after all checks have run.
   result<T>(value: unknown): ValidationResult<T> {
     const [first, ...rest] = this.diagnostics;
     if (first) return { success: false, diagnostics: [first, ...rest] };

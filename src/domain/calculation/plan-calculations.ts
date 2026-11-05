@@ -1,9 +1,10 @@
-import type { DerivedField, Template } from './documents';
-import type { Expression } from './expressions';
-import type { LocatedDefinition } from './in-memory-definition-catalog';
-import { DefinitionChecks } from './validation';
-import type { ValidationResult } from './validation';
+import type { DerivedField, Template } from '../documents';
+import type { Expression } from '../definitions/expressions';
+import type { LocatedDefinition } from '../definition-processing/in-memory-definition-catalog';
+import { DefinitionChecks } from '../validation';
+import type { ValidationResult } from '../validation';
 
+// Yield field references and their locations from every expression branch.
 function* references(
   expression: Expression,
   pointer: string,
@@ -29,7 +30,11 @@ function* references(
   }
 }
 
-/** Order derived fields in a structurally validated template. */
+/**
+ * Plan evaluation order and diagnose missing references or dependency cycles.
+ * @param template Located template that has already passed structural validation.
+ * @returns Derived fields ordered so dependencies precede their consumers, or diagnostics.
+ */
 export function planCalculations(
   template: LocatedDefinition<Template>,
 ): ValidationResult<readonly DerivedField[]> {
@@ -42,6 +47,7 @@ export function planCalculations(
   const visited = new Set<string>();
   const order: DerivedField[] = [];
 
+  // Walk dependencies depth first and append each field after its prerequisites.
   function visit(field: DerivedField, index: number): void {
     if (visited.has(field.id)) return;
     active.add(field.id);

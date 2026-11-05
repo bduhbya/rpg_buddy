@@ -1,5 +1,5 @@
-import type { EntryEffect } from './documents';
-import type { DefinitionChecks } from './validation';
+import type { EntryEffect } from '../documents';
+import type { DefinitionChecks } from '../validation';
 
 type EffectOperationHandlers = {
   [Operation in EntryEffect['op']]: {
@@ -11,6 +11,7 @@ type EffectOperationHandlers = {
 /** One registration owns each operation's closed shape, validation and arithmetic. */
 const operations = {
   multiply: {
+    // Check the multiplier's closed shape, target identifier, and positive safe-integer factor.
     validate(value, pointer, checks) {
       const start = checks.diagnostics.length;
       if (!checks.object(value, pointer, ['op', 'target', 'factor'])) return undefined;
@@ -37,6 +38,13 @@ const operations = {
   },
 } satisfies EffectOperationHandlers;
 
+/**
+ * Validate an effect's operation name, properties, and operands using the registered validator.
+ * @param value Parsed effect object to check.
+ * @param pointer JSON Pointer to the effect within the entry document.
+ * @param checks Call-local validator that collects operation diagnostics.
+ * @returns The validated effect, or undefined when operation validation fails.
+ */
 export function validateEffectOperation(
   value: unknown,
   pointer: string,
@@ -62,7 +70,12 @@ export function validateEffectOperation(
   return operations[op as EntryEffect['op']].validate(value, pointer, checks);
 }
 
-/** Called only with effects accepted by validateEffectOperation. */
+/**
+ * Apply a validated operation to a derived field's base value. The caller checks the result against the calculation's numeric constraints.
+ * @param base Result of the field's base formula.
+ * @param effect Effect previously accepted by validateEffectOperation.
+ * @returns The operation's numeric result.
+ */
 export function applyEffectOperation(base: number, effect: EntryEffect): number {
   return operations[effect.op].apply(base, effect);
 }
