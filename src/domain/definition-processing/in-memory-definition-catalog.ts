@@ -1,10 +1,10 @@
 import type { DefinitionReference } from '../definitions/common';
 import type { Diagnostic, DiagnosticLocation } from '../definitions/diagnostics';
-import type { SystemManifest, Template } from '../documents';
+import type { SystemManifest, Template } from '../definitions/document-models';
 import { validateSystemManifest } from './validate-manifest';
 import { validateTemplate } from './validate-template';
-import { DefinitionChecks } from '../validation';
-import type { ValidationResult } from '../validation';
+import { DefinitionChecks } from '../instances/structural-validation';
+import type { ValidationResult } from '../instances/structural-validation';
 
 export interface ParsedDefinition {
   document: string;

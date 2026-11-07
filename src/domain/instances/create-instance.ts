@@ -1,10 +1,10 @@
-import { INSTANCE_ROLES } from '../documents';
-import type { Instance, InstanceRole } from '../documents';
+import { INSTANCE_ROLES } from '../definitions/document-models';
+import type { Instance, InstanceRole } from '../definitions/document-models';
 import type { InMemoryDefinitionCatalog } from '../definition-processing/in-memory-definition-catalog';
 import { resolveDefinitions } from '../definition-processing/resolve-definitions';
 import type { DefinitionRequest } from '../definition-processing/resolve-definitions';
-import { DefinitionChecks } from '../validation';
-import type { ValidationResult } from '../validation';
+import { DefinitionChecks } from './structural-validation';
+import type { ValidationResult } from './structural-validation';
 
 export interface CreateInstanceRequest extends DefinitionRequest {
   role: InstanceRole;

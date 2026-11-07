@@ -3,7 +3,7 @@ import {
   applyEffectOperation,
   validateEffectOperation,
 } from '../../../src/domain/calculation/effect-operations';
-import { DefinitionChecks } from '../../../src/domain/validation';
+import { DefinitionChecks } from '../../../src/domain/instances/structural-validation';
 import { multiplyEffect } from './effect-fixtures';
 
 function validate(value: unknown) {

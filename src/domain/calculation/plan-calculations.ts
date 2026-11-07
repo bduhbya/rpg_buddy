@@ -1,8 +1,8 @@
-import type { DerivedField, Template } from '../documents';
+import type { DerivedField, Template } from '../definitions/document-models';
 import type { Expression } from '../definitions/expressions';
 import type { LocatedDefinition } from '../definition-processing/in-memory-definition-catalog';
-import { DefinitionChecks } from '../validation';
-import type { ValidationResult } from '../validation';
+import { DefinitionChecks } from '../instances/structural-validation';
+import type { ValidationResult } from '../instances/structural-validation';
 
 // Yield field references and their locations from every expression branch.
 function* references(

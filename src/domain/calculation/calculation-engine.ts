@@ -1,12 +1,12 @@
 import type { Expression } from '../definitions/expressions';
-import type { Template } from '../documents';
+import type { Template } from '../definitions/document-models';
 import type { LocatedDefinition } from '../definition-processing/in-memory-definition-catalog';
 import { planCalculations } from './plan-calculations';
 import { validateTemplate } from '../definition-processing/validate-template';
 import { validateEntryEffects } from './validate-entry-effects';
 import { applyEffectOperation } from './effect-operations';
-import { childPointer, DefinitionChecks } from '../validation';
-import type { ValidationResult } from '../validation';
+import { childPointer, DefinitionChecks } from '../instances/structural-validation';
+import type { ValidationResult } from '../instances/structural-validation';
 
 // Check operand types recursively, including both branches of a conditional.
 function checkExpressionType(

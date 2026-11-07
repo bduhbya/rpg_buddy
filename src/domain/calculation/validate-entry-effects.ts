@@ -1,8 +1,8 @@
-import type { EntryEffect, Template } from '../documents';
+import type { EntryEffect, Template } from '../definitions/document-models';
 import { validateEffectOperation } from './effect-operations';
 import type { LocatedDefinition } from '../definition-processing/in-memory-definition-catalog';
-import { childPointer, DefinitionChecks } from '../validation';
-import type { ValidationResult } from '../validation';
+import { childPointer, DefinitionChecks } from '../instances/structural-validation';
+import type { ValidationResult } from '../instances/structural-validation';
 
 export interface LocatedEntryEffect {
   effect: EntryEffect;

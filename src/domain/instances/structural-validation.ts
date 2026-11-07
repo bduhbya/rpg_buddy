@@ -1,10 +1,10 @@
-import type { Diagnostic, DiagnosticCode } from './definitions/diagnostics';
+import type { Diagnostic, DiagnosticCode } from '../definitions/diagnostics';
 import {
   DEFINITION_VERSION_PATTERN,
   FIELD_ID_PATTERN,
   NONBLANK_TEXT_PATTERN,
   SLUG_PATTERN,
-} from './definitions/definition-patterns';
+} from '../definitions/definition-patterns';
 
 export type ValidationResult<T> =
   { success: true; value: T } | { success: false; diagnostics: [Diagnostic, ...Diagnostic[]] };

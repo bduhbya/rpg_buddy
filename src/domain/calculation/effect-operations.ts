@@ -1,5 +1,5 @@
-import type { EntryEffect } from '../documents';
-import type { DefinitionChecks } from '../validation';
+import type { EntryEffect } from '../definitions/document-models';
+import type { DefinitionChecks } from '../instances/structural-validation';
 
 type EffectOperationHandlers = {
   [Operation in EntryEffect['op']]: {

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { validateTemplate } from '../../../src/domain/definition-processing/validate-template';
-import type { Template } from '../../../src/domain/documents';
+import type { Template } from '../../../src/domain/definitions/document-models';
 import { loadFixtures } from './fixtures';
 
 const document = 'template-under-review';

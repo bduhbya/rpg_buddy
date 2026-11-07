@@ -1,7 +1,7 @@
-import type { SystemManifest } from '../documents';
+import type { SystemManifest } from '../definitions/document-models';
 import { SOURCE_SHA256_PATTERN } from '../definitions/definition-patterns';
-import { childPointer, DefinitionChecks } from '../validation';
-import type { ValidationResult } from '../validation';
+import { childPointer, DefinitionChecks } from '../instances/structural-validation';
+import type { ValidationResult } from '../instances/structural-validation';
 
 /**
  * Validate a parsed v1 manifest and its document-local invariants.

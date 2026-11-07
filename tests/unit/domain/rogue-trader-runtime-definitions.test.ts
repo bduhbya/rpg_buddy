@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { calculateWithEntries } from '../../../src/domain/calculation/calculate-with-entries';
 import { createInstance } from '../../../src/domain/instances/create-instance';
-import type { Instance } from '../../../src/domain/documents';
+import type { Instance } from '../../../src/domain/definitions/document-models';
 import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-processing/in-memory-definition-catalog';
 import { resolveDefinitions } from '../../../src/domain/definition-processing/resolve-definitions';
 import { entryFixture, multiplyEffect } from './effect-fixtures';

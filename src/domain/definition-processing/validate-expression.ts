@@ -1,5 +1,5 @@
-import { childPointer } from '../validation';
-import type { DefinitionChecks } from '../validation';
+import { childPointer } from '../instances/structural-validation';
+import type { DefinitionChecks } from '../instances/structural-validation';
 
 /**
  * Check the closed expression syntax in every branch. Reference resolution and type checking happen during calculation.
