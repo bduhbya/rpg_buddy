@@ -1,11 +1,12 @@
 # Domain architecture
 
-This is a living guide to the domain code. Update it when responsibilities, public APIs, data ownership or calculation flow change. The [constitution](../../specs/mission.md) and [v1 contract](../../data_contracts/contracts.md) define the governing requirements. This guide describes their implementation.
+This is a living guide to the domain code. Update it when responsibilities, public APIs, data ownership or calculation flow change. The [constitution](../../specs/mission.md) and [v1 contract](../../data_contracts/contracts.md) define the governing requirements. This guide describes their implementation. For call signatures and diagnostic details, see the [domain API reference](README.md).
 
 ## Use cases
 
 - [Resolve a system and template](#resolve-a-system-and-template) before creating or calculating an instance.
 - [Create an instance](#create-an-instance) with independent source values.
+- [Edit an instance](#edit-an-instance) and recompute its derived values.
 - [Calculate base values](#calculate-base-values) from a resolved template and editable inputs.
 - [Calculate with entry effects](#calculate-with-entry-effects) to include selected instance features.
 
@@ -42,6 +43,16 @@ flowchart TD
 ```
 
 [Instance creation](instances/create-instance.ts) calls the providers after resolution succeeds. The caller supplies a fresh ID. The domain uses one timestamp for both creation and modification. Each instance owns its reference objects, input map and entries array. Calculation is a separate operation using the instance's inputs and, when applicable, its entries.
+
+## Edit an instance
+
+Pass a previously valid in-memory instance and one operation to [editInstance](instances/edit-instance.ts). Scalar operations use primitive arguments. Adding or replacing an entry uses JSON text for the complete snapshot, and removal uses its local ID. See the [operation signatures](README.md#instance-editing).
+
+The operation applies the edit to a private candidate. It resolves the instance's exact definitions and validates and recomputes the candidate through [calculateWithEntries](calculation/calculate-with-entries.ts). The instance in the success result is the source state used for that calculation.
+
+Setting the authored Ork's Toughness from 45 to 50 raises its effect-adjusted Toughness Bonus from 8 to 10. Removing Unnatural Toughness in a separate call recalculates the bonus to 5. Each call succeeds or fails independently, so the caller can continue from the last successful instance and results.
+
+A changed instance receives a modification timestamp from the caller's UTC clock after calculation succeeds. An equivalent edit keeps the timestamp. Calculation diagnostics for source values and entries use separate logical documents, such as `ork values` and `ork entries`.
 
 ## Calculate base values
 
@@ -147,7 +158,8 @@ Domain modules depend on other domain modules. Filesystem access, Electron, Reac
 | Dependency analysis and base expression evaluation                      | Implemented.                                                                         |
 | Instance-entry effect application                                       | Implemented; Phase 10 acceptance and verifier migration are complete.                |
 | In-memory instance creation                                             | Implemented.                                                                         |
-| Instance editing and complete saved-instance validation                 | Planned in later roadmap phases.                                                     |
+| In-memory instance editing                                              | Implemented for source values, display name, career and entry snapshots.             |
+| Complete saved-instance validation                                      | Planned in a later roadmap phase.                                                    |
 | Library discovery, selected-system loading and persistence              | Planned in later roadmap phases.                                                     |
 | Reusable feature library and selection provenance                       | Requires its own future specification. Current entries are instance-owned snapshots. |
 

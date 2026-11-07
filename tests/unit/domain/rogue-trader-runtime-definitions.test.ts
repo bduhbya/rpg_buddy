@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { calculateWithEntries } from '../../../src/domain/calculation/calculate-with-entries';
 import { createInstance } from '../../../src/domain/instances/create-instance';
+import { editInstance } from '../../../src/domain/instances/edit-instance';
 import type { Instance } from '../../../src/domain/definitions/document-models';
 import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-processing/in-memory-definition-catalog';
 import { resolveDefinitions } from '../../../src/domain/definition-processing/resolve-definitions';
@@ -169,6 +170,61 @@ describe('Rogue Trader runtime definitions', () => {
         value: statistics(0, 0, 0, [0.5, 1, 2, 3]),
       });
     }
+  });
+
+  it('edits one instance through the domain API and preserves the other', () => {
+    const catalog = runtimeCatalog();
+    const { character, monster } = loadFixtures();
+    const originalCharacter = structuredClone(character);
+    const originalMonster = structuredClone(monster);
+    const clock = { now: () => '2026-11-07T18:00:00Z' };
+    const edited = editInstance(catalog, monster, clock, 'ork', 'set-value', 'toughness', 50);
+    if (!edited.success) throw new Error(JSON.stringify(edited.diagnostics));
+    expect(edited.value.derived).toEqual(statistics(5, 10, 3, [3, 6, 9, 18]));
+
+    // A rejected source edit must preserve the last valid score, effect and results.
+    const rejected = editInstance(
+      catalog,
+      edited.value.instance,
+
+      clock,
+      'ork',
+      'set-value',
+      'toughness',
+      100,
+    );
+    expect(rejected).toMatchObject({
+      success: false,
+      diagnostics: [{ code: 'INVALID_VALUE', document: 'ork values', pointer: '/toughness' }],
+    });
+    expect(rejected).not.toHaveProperty('value');
+    expect(edited.value.instance.entries.map(({ id }) => id)).toContain('unnatural-toughness');
+    expect(edited.value.instance.values.toughness).toBe(50);
+    expect(edited.value.derived.toughnessBonus).toBe(10);
+
+    // Remove the entry in a separate call and recalculate from the retained Toughness of 50.
+    const recovered = editInstance(
+      catalog,
+      edited.value.instance,
+
+      clock,
+      'ork',
+      'remove-entry',
+      'unnatural-toughness',
+    );
+    expect(recovered).toMatchObject({
+      success: true,
+      value: {
+        instance: { id: monster.id, values: { toughness: 50 }, entries: [] },
+        derived: statistics(5, 5, 3, [3, 6, 9, 18]),
+      },
+    });
+    expect(monster).toEqual(originalMonster);
+    expect(character).toEqual(originalCharacter);
+    expect(calculate(character)).toEqual({
+      success: true,
+      value: statistics(4, 3, 3, [3, 6, 9, 18]),
+    });
   });
 
   it('resolves both roles and matches independent worked and edited results', () => {

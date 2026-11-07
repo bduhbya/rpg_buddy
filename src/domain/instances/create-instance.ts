@@ -3,6 +3,7 @@ import type { Instance, InstanceRole } from '../definitions/document-models';
 import type { InMemoryDefinitionCatalog } from '../definition-processing/in-memory-definition-catalog';
 import { resolveDefinitions } from '../definition-processing/resolve-definitions';
 import type { DefinitionRequest } from '../definition-processing/resolve-definitions';
+import { isUtcTimestamp } from '../definitions/utc-timestamp';
 import { DefinitionChecks } from './structural-validation';
 import type { ValidationResult } from './structural-validation';
 
@@ -14,16 +15,6 @@ export interface CreateInstanceRequest extends DefinitionRequest {
 export interface InstanceCreationProviders {
   newId(): string;
   now(): string;
-}
-
-// Check that a timestamp uses the required UTC format and names a real calendar date.
-function isUtcTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
-  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.\d+)?Z$/.exec(value);
-  if (!match || match[0].length !== value.length) return false;
-  // Compare calendar components to reject Date.parse's normalization of invalid dates.
-  const date = new Date(`${match[1]}Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 19) === match[1];
 }
 
 /**
