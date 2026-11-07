@@ -1,3 +1,4 @@
+import { sameJsonContent } from '../definitions/json-content';
 import type { DefinitionReference } from '../definitions/common';
 import type { Diagnostic, DiagnosticLocation } from '../definitions/diagnostics';
 import type { SystemManifest, Template } from '../definitions/document-models';
@@ -37,28 +38,6 @@ function templateIdentity(systemId: string, templateId: string): string {
   return JSON.stringify([systemId, templateId]);
 }
 
-// Compare JSON content independently of object key order while preserving array order.
-function sameContent(left: unknown, right: unknown): boolean {
-  if (left === right) return true;
-  if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object')
-    return false;
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => sameContent(value, right[index]))
-    );
-  }
-  const a = left as Record<string, unknown>;
-  const b = right as Record<string, unknown>;
-  const keys = Object.keys(a);
-  return (
-    keys.length === Object.keys(b).length &&
-    keys.every((key) => Object.hasOwn(b, key) && sameContent(a[key], b[key]))
-  );
-}
-
 // Keep the first entry for an exact version and report duplicates with conflicting content.
 function register<T extends Definition>(
   index: Index<T>,
@@ -73,7 +52,7 @@ function register<T extends Definition>(
   }
   const previous = versions.get(entry.value.version);
   if (!previous) versions.set(entry.value.version, entry);
-  else if (!sameContent(previous.value, entry.value)) {
+  else if (!sameJsonContent(previous.value, entry.value)) {
     diagnostics.push({
       code: 'DEFINITION_CONFLICT',
       document: entry.document,
