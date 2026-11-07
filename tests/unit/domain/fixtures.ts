@@ -1,5 +1,9 @@
 import { readFileSync } from 'node:fs';
-import type { Instance, SystemManifest, Template } from '../../../src/domain/documents';
+import type {
+  Instance,
+  SystemManifest,
+  Template,
+} from '../../../src/domain/definitions/document-models';
 
 /**
  * Test-only access to authored fixtures checked by the Python contract verifier.

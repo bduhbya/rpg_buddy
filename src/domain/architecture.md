@@ -38,7 +38,7 @@ flowchart TD
     B --> C["Obtain and validate ID, then UTC time<br/>createInstance · create-instance.ts"]
     P["Caller supplies ID and time providers<br/>InstanceCreationProviders · create-instance.ts"] --> C
     C --> D["Build independent instance from defaults<br/>createInstance · create-instance.ts"]
-    D --> E["Editable values and empty entries<br/>Instance · documents.ts"]
+    D --> E["Editable values and empty entries<br/>Instance · document-models.ts"]
 ```
 
 [Instance creation](instances/create-instance.ts) calls the providers after resolution succeeds. The caller supplies a fresh ID. The domain uses one timestamp for both creation and modification. Each instance owns its reference objects, input map and entries array. Calculation is a separate operation using the instance's inputs and, when applicable, its entries.
@@ -52,7 +52,7 @@ flowchart TD
     A["Located template and complete input map<br/>calculateBase · calculate-base.ts"] --> B["Revalidate template and plan dependencies<br/>validateTemplate · validate-template.ts<br/>planCalculations · plan-calculations.ts"]
     B --> C["Check expression types and input values<br/>calculateDerived · calculation-engine.ts"]
     C --> D["Evaluate fields in dependency order<br/>evaluateExpression · calculation-engine.ts"]
-    D --> E["Derived values by field ID<br/>ValidationResult · validation.ts"]
+    D --> E["Derived values by field ID<br/>ValidationResult · structural-validation.ts"]
 ```
 
 The [shared engine](calculation/calculation-engine.ts) revalidates mutable template copies. The [dependency planner](calculation/plan-calculations.ts) checks missing references and cycles before the engine evaluates formulas. The base operation uses an empty entry array.
@@ -107,7 +107,7 @@ flowchart TD
     D --> E
     E --> F["Store the final field value<br/>calculateDerived · calculation-engine.ts"]
     F -->|Next field reads stored values| D
-    F -->|All fields complete| G["Derived values by field ID<br/>ValidationResult · validation.ts"]
+    F -->|All fields complete| G["Derived values by field ID<br/>ValidationResult · structural-validation.ts"]
 ```
 
 [Entry validation](calculation/validate-entry-effects.ts) runs after dependency planning and before expression type and input checks. It validates the closed v1 entry shape and effect targets before arithmetic. Entry diagnostic pointers are relative to the supplied array's logical document root, such as `/0/effects/0/target`.
@@ -118,7 +118,7 @@ For the authored Ork, the base formula floors Toughness 45 divided by 10 to prod
 
 Effects add no dependency edges. Each invocation owns fresh maps and preserves the caller's data and earlier results. The application layer retains the last valid instance on failure.
 
-`EntryEffect` in `documents.ts` defines the supported effect union. [The effect registry](calculation/effect-operations.ts) is checked with `satisfies EffectOperationHandlers`, keyed by every operation in that union. Each registration owns both closed-shape validation and arithmetic. Adding an operation to the union requires its registration at compile time; supported-operation diagnostics are derived from the registry keys. Unknown operations, including inherited object-property names, are rejected. New operations still require an explicit versioned contract/schema change and acceptance coverage.
+`EntryEffect` in `document-models.ts` defines the supported effect union. [The effect registry](calculation/effect-operations.ts) is checked with `satisfies EffectOperationHandlers`, keyed by every operation in that union. Each registration owns both closed-shape validation and arithmetic. Adding an operation to the union requires its registration at compile time; supported-operation diagnostics are derived from the registry keys. Unknown operations, including inherited object-property names, are rejected. New operations still require an explicit versioned contract/schema change and acceptance coverage.
 
 ## Shared data and utilities
 
@@ -135,7 +135,7 @@ Published definition versions are immutable. A newer template does not implicitl
 
 Selected entries own snapshots of their descriptions and explicit effects. Those selections can survive changes to a future feature library. Their effects are part of the instance state, while generic formulas and permitted effect targets belong to the template.
 
-[Document types](documents.ts) define the manifest, template, instance and entry shapes. The `definitions/` folder holds [references and metadata](definitions/common.ts), [expression types](definitions/expressions.ts), [diagnostics](definitions/diagnostics.ts), and [identifier and version patterns](definitions/definition-patterns.ts). [Shared validation](validation.ts) owns result types, structural checks and pointer escaping. The [expression syntax checker](definition-processing/validate-expression.ts) runs during template validation.
+[Document types](definitions/document-models.ts) define the manifest, template, instance and entry shapes. The `definitions/` folder holds [references and metadata](definitions/common.ts), [expression types](definitions/expressions.ts), [diagnostics](definitions/diagnostics.ts), and [identifier and version patterns](definitions/definition-patterns.ts). [Shared structural validation](instances/structural-validation.ts) owns result types, structural checks and pointer escaping. The [expression syntax checker](definition-processing/validate-expression.ts) runs during template validation.
 
 ## Boundaries and upcoming work
 

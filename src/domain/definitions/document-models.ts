@@ -1,5 +1,5 @@
-import type { DefinitionReference, Metadata } from './definitions/common';
-import type { Expression } from './definitions/expressions';
+import type { DefinitionReference, Metadata } from './common';
+import type { Expression } from './expressions';
 
 /**
  * Shapes mirror data_contracts/v1/*.schema.json and data_contracts/contracts.md.

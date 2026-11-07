@@ -1,8 +1,8 @@
 import type { DefinitionReference } from '../definitions/common';
-import type { SystemManifest, Template } from '../documents';
+import type { SystemManifest, Template } from '../definitions/document-models';
 import type { InMemoryDefinitionCatalog, LocatedDefinition } from './in-memory-definition-catalog';
-import { DefinitionChecks } from '../validation';
-import type { ValidationResult } from '../validation';
+import { DefinitionChecks } from '../instances/structural-validation';
+import type { ValidationResult } from '../instances/structural-validation';
 
 export interface DefinitionRequest {
   system: DefinitionReference;

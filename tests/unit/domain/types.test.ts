@@ -6,7 +6,7 @@ import type {
   InstanceRole,
   MultiplyEffect,
   Template,
-} from '../../../src/domain/documents';
+} from '../../../src/domain/definitions/document-models';
 import type { Expression } from '../../../src/domain/definitions/expressions';
 
 test('v1 discriminants and optional documentary metadata remain explicit', () => {

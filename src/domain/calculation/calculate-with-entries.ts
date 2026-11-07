@@ -1,7 +1,7 @@
-import type { Template } from '../documents';
+import type { Template } from '../definitions/document-models';
 import type { LocatedDefinition } from '../definition-processing/in-memory-definition-catalog';
 import { calculateDerived } from './calculation-engine';
-import type { ValidationResult } from '../validation';
+import type { ValidationResult } from '../instances/structural-validation';
 
 /**
  * Compute derived values with the effects declared by an instance's entry snapshots.

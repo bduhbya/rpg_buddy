@@ -1,7 +1,7 @@
-import type { Template } from '../documents';
+import type { Template } from '../definitions/document-models';
 import { checkExpression } from './validate-expression';
-import { childPointer, DefinitionChecks } from '../validation';
-import type { JsonObject, ValidationResult } from '../validation';
+import { childPointer, DefinitionChecks } from '../instances/structural-validation';
+import type { JsonObject, ValidationResult } from '../instances/structural-validation';
 
 // Check shared field properties, then validate input bounds or derived expression syntax.
 function checkField(
