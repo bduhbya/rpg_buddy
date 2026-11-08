@@ -16,7 +16,7 @@ The milestone is complete when a user can:
 - Create distinct character and monster instances from those templates.
 - Edit template-defined core values through a usable interface.
 - See supported derived values update according to template-defined relationships.
-- Save instances to the configured local library and reload them without losing their values or identity.
+- Save instances to the configured local library and reopen them with their identity, editable values, selected effects, and recorded final statistics intact. Opening the sheet displays those statistics without recalculating them. A valid saved sheet remains viewable in read-only mode when its exact definitions are unavailable.
 - Receive clear feedback for invalid input, unsupported template versions, missing dependencies, or calculation failures.
 
 The milestone proves a representative, explicitly specified subset of the base game's sheet data and calculations. It does not promise complete character-generation automation or every rule in the book. The source-review phase defines the exact supported fields, calculations, and examples for human approval.

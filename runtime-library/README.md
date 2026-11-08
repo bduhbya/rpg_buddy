@@ -1,6 +1,6 @@
 # Runtime library definitions
 
-This directory is the maintained seed content for a future user-selected library. It is separate from the contract-verification examples in [data_contracts](../data_contracts/README.md). The desktop application does not yet load or install it; filesystem definition loading is Roadmap Phase 15. No local rulebook PDF is required to use these definitions.
+This directory is the maintained seed content for a future user-selected library. It is separate from the contract-verification examples in [data_contracts](../data_contracts/README.md). The desktop application does not yet load or install it; filesystem definition loading is Roadmap Phase 16. No local rulebook PDF is required to use these definitions.
 
 ## Contents
 
