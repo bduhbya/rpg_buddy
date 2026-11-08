@@ -2,6 +2,8 @@
 
 Normative companion to `data_contracts/v1/*.schema.json` (repository-relative). All JSON is UTF-8. Reject duplicate object keys, non-JSON tokens such as NaN/Infinity, unknown properties and unsupported schemaVersion before using a document. JSON Schema describes structure; semantic checks below are also mandatory. Object key order is insignificant; array order is meaningful. No string-to-number or boolean coercion.
 
+The [self-contained instances replan](../specs/2026-11-07_replanning-self-contained-instances/plan.md) schedules a later revision to the instance format. The rules and schemas on this page describe the current v1 contract.
+
 ## Identity, versions and library paths
 
 IDs are stable lowercase ASCII slugs (1-64 characters); field IDs are case-sensitive ASCII identifiers as defined by the schema. Identity never comes from a label or filename. The same entity ID remains stable across saves. New instances receive fresh IDs, with collision detection; fixture IDs are not an ID-generation policy. All references use exact id/version pairs. Schema version 1 is independent of definition version `major.minor.patch`; version components have no leading zeros. No ranges, implicit upgrades or newest-version fallback. A changed published definition requires a new version. This is the first unpublished schema-version-1 draft: its earlier separate-template form is replaced here before any application or saved library exists. No migration or compatibility with that superseded draft is implied. Unsupported versions fail without rewriting files.
