@@ -86,7 +86,7 @@ class Section(TypedDict):
 
 
 class Template(TypedDict):
-    schemaVersion: Literal[1]
+    schemaVersion: Literal[2]
     id: str
     version: str
     system: DefinitionReference
@@ -116,15 +116,27 @@ class Entry(TypedDict):
     metadata: NotRequired[Metadata]
 
 
-class Instance(TypedDict):
-    schemaVersion: Literal[1]
+class PresentedField(TypedDict):
+    label: str
+    unit: NotRequired[str]
+
+
+class SheetPresentation(TypedDict):
+    sections: list[Section]
+    fields: dict[str, PresentedField]
+
+
+class SheetSnapshot(TypedDict):
+    schemaVersion: Literal[2]
     id: str
     entityType: str
     role: Literal['character', 'monster']
     system: DefinitionReference
     template: DefinitionReference
     displayName: str
-    values: dict[str, int]
+    values: dict[str, Number]
+    derived: dict[str, Number]
+    presentation: SheetPresentation
     entries: list[Entry]
     createdAt: str
     modifiedAt: str
@@ -139,7 +151,7 @@ class Source(TypedDict):
 
 
 class Manifest(TypedDict):
-    schemaVersion: Literal[1]
+    schemaVersion: Literal[2]
     id: str
     version: str
     label: str

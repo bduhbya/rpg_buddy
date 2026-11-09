@@ -2,12 +2,12 @@ import type { DefinitionReference, Metadata } from './common';
 import type { Expression } from './expressions';
 
 /**
- * Shapes mirror data_contracts/v1/*.schema.json and data_contracts/contracts.md.
+ * Shapes mirror the versioned schemas and data_contracts/contracts.md.
  * These declarations do not validate untrusted JSON, reject extra properties at
  * runtime, or enforce string formats, finite/safe integers or semantic invariants.
  */
 export interface SystemManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: string;
   version: string;
   label: string;
@@ -47,7 +47,7 @@ export interface Section {
 }
 
 export interface Template {
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: string;
   version: string;
   system: DefinitionReference;
@@ -81,13 +81,18 @@ export interface Entry {
   metadata?: Metadata;
 }
 
-/** Keep the v1 role list in sync with data_contracts/v1/instance.schema.json. */
+/** Keep this list in sync with data_contracts/v2/instance.schema.json. */
 export const INSTANCE_ROLES = ['character', 'monster'] as const;
 export type InstanceRole = (typeof INSTANCE_ROLES)[number];
 
-/** Editable source data only; derived results are not persisted here. */
+export interface SheetPresentation {
+  sections: Section[];
+  fields: Record<string, { label: string; unit?: string }>;
+}
+
+/** Complete sheet snapshot, including the final results of its last calculation. */
 export interface Instance {
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: string;
   entityType: string;
   role: InstanceRole;
@@ -95,6 +100,8 @@ export interface Instance {
   template: DefinitionReference;
   displayName: string;
   values: Record<string, number>;
+  derived: Record<string, number>;
+  presentation: SheetPresentation;
   entries: Entry[];
   createdAt: string;
   modifiedAt: string;

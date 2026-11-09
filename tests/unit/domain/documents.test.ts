@@ -5,9 +5,9 @@ test('both instance roles reference the same exact manifest and creature templat
   const { manifest, template, character, monster } = loadFixtures();
   expect({ id: manifest.id, version: manifest.version }).toEqual({
     id: 'rogue-trader',
-    version: '1.0.0',
+    version: '1.0.1',
   });
-  expect(manifest.templates).toEqual([{ id: 'creature-core', version: '1.0.0' }]);
+  expect(manifest.templates).toEqual([{ id: 'creature-core', version: '1.0.1' }]);
   expect(template.system).toEqual({ id: manifest.id, version: manifest.version });
   for (const instance of [character, monster]) {
     expect(instance.system).toEqual(template.system);
@@ -19,7 +19,7 @@ test('both instance roles reference the same exact manifest and creature templat
   expect(character.id).not.toBe(monster.id);
 });
 
-test('template declares ordered inputs, zero defaults and derived syntax without persisted results', () => {
+test('template declares ordered inputs, zero defaults and derived syntax', () => {
   const { template, character, monster } = loadFixtures();
   const inputIds = [
     'weaponSkill',

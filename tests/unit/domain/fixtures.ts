@@ -12,14 +12,14 @@ import type {
  */
 function readAuthoredFixture<T>(path: string): T {
   return JSON.parse(
-    readFileSync(new URL(`../../../data_contracts/examples/${path}`, import.meta.url), 'utf8'),
+    readFileSync(new URL(`../../../data_contracts/examples/v2/${path}`, import.meta.url), 'utf8'),
   ) as T;
 }
 
 export function loadFixtures() {
   return {
     manifest: readAuthoredFixture<SystemManifest>('system.json'),
-    template: readAuthoredFixture<Template>('templates/creature-core/1.0.0/template.json'),
+    template: readAuthoredFixture<Template>('templates/creature-core/1.0.1/template.json'),
     character: readAuthoredFixture<Instance>('explorator.instance.json'),
     monster: readAuthoredFixture<Instance>('ork-freebooter.instance.json'),
   };

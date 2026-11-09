@@ -1,7 +1,7 @@
 import { UTC_FRACTION_TRAILING_ZEROS_PATTERN, UTC_TIMESTAMP_PATTERN } from './definition-patterns';
 
 /**
- * Validate a v1 UTC timestamp with calendar-valid seconds and optional fractional seconds.
+ * Validate a UTC timestamp with calendar-valid seconds and optional fractional seconds.
  * @param value Candidate value from an untrusted source.
  * @returns Whether the value is a valid timestamp string ending in Z.
  */

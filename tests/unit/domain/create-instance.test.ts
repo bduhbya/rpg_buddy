@@ -4,14 +4,17 @@ import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-
 import { loadFixtures } from './fixtures';
 
 const timestamp = '2026-11-04T16:30:00.123Z';
-const TEST_WEAPON_SKILL_DEFAULT = 12;
+const TEST_AGILITY_DEFAULT = 12;
 
-function setup() {
+function setup(
+  configureTemplate?: (template: ReturnType<typeof loadFixtures>['template']) => void,
+) {
   const { manifest, template } = loadFixtures();
   // A nonzero generic default proves creation reads the template, not hardcoded RT defaults.
-  const weaponSkill = template.inputs.find((field) => field.id === 'weaponSkill');
-  if (!weaponSkill) throw new Error('Expected weaponSkill in the test template');
-  weaponSkill.default = TEST_WEAPON_SKILL_DEFAULT;
+  const agility = template.inputs.find((field) => field.id === 'agility');
+  if (!agility) throw new Error('Expected agility in the test template');
+  agility.default = TEST_AGILITY_DEFAULT;
+  configureTemplate?.(template);
   const result = createInMemoryDefinitionCatalog(
     [{ document: 'manifest', value: manifest }],
     [{ document: 'template', value: template }],
@@ -31,7 +34,7 @@ function setup() {
 }
 
 test.each(['character', 'monster'] as const)(
-  'creates a source-only %s with template defaults',
+  'creates a complete %s sheet with template defaults and final results',
   (role) => {
     const data = setup();
     const result = createInstance(
@@ -43,7 +46,7 @@ test.each(['character', 'monster'] as const)(
     expect(result).toEqual({
       success: true,
       value: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         id: 'instance-1',
         entityType: 'creature',
         role,
@@ -51,16 +54,26 @@ test.each(['character', 'monster'] as const)(
         template: data.request.template,
         displayName: 'Creature',
         values: {
-          weaponSkill: TEST_WEAPON_SKILL_DEFAULT,
+          weaponSkill: 0,
           ballisticSkill: 0,
           strength: 0,
           toughness: 0,
-          agility: 0,
+          agility: TEST_AGILITY_DEFAULT,
           intelligence: 0,
           perception: 0,
           willpower: 0,
           fellowship: 0,
         },
+        derived: {
+          strengthBonus: 0,
+          toughnessBonus: 0,
+          agilityBonus: 1,
+          halfMove: 1,
+          fullMove: 2,
+          chargeMove: 3,
+          runMove: 6,
+        },
+        presentation: loadFixtures().character.presentation,
         entries: [],
         createdAt: timestamp,
         modifiedAt: timestamp,
@@ -84,6 +97,9 @@ test('creates distinct independent state without changing requests, definitions 
   const saved = structuredClone(second.value);
   expect(first.value.id).not.toBe(second.value.id);
   first.value.values.strength = 99;
+  first.value.derived.strengthBonus = 9;
+  first.value.presentation.fields.strength.label = 'Changed';
+  first.value.presentation.sections[0].fields.reverse();
   first.value.system.version = '9.0.0';
   first.value.template.id = 'changed';
   first.value.entries.push({
@@ -99,6 +115,24 @@ test('creates distinct independent state without changing requests, definitions 
   );
   const third = createInstance(data.catalog, data.request, data.providers, 'third');
   expect(third).toEqual({ success: true, value: { ...saved, id: 'instance-3' } });
+});
+
+test('reports a failed initial calculation without creating a partial sheet or consuming an ID', () => {
+  const data = setup((template) => {
+    template.derived[0].expression = {
+      op: 'divide',
+      left: { op: 'constant', value: 1 },
+      right: { op: 'field', id: 'strength' },
+    };
+  });
+  const result = createInstance(data.catalog, data.request, data.providers, 'creation');
+  expect(result).toMatchObject({
+    success: false,
+    diagnostics: [{ code: 'DIVISION_BY_ZERO', document: 'template' }],
+  });
+  expect(result).not.toHaveProperty('value');
+  expect(data.providers.newId).not.toHaveBeenCalled();
+  expect(data.providers.now).not.toHaveBeenCalled();
 });
 
 test.each([
@@ -183,7 +217,7 @@ test.each([
   expect(result).not.toHaveProperty('value');
 });
 
-test.each(['2024-02-29T23:59:59Z', '2000-02-29T00:00:00.123456789Z', '0000-01-01T00:00:00Z'])(
+test.each(['2024-02-29T23:59:59Z', '2000-02-29T00:00:00.123456789Z', '0000-02-29T00:00:00Z'])(
   'accepts valid calendar timestamp %s',
   (time) => {
     const data = setup();

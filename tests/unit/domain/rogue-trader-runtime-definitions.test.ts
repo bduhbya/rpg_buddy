@@ -10,7 +10,8 @@ import { entryFixture, multiplyEffect } from './effect-fixtures';
 import { loadFixtures } from './fixtures';
 
 const root = '../../../runtime-library/RPG_systems/rogue-trader/';
-const templatePath = 'templates/creature-core/1.0.0/template.json';
+const templatePath = 'templates/creature-core/1.0.1/template.json';
+const archivePath = 'manifests/1.0.1/system.json';
 
 // Test-only file access. Unknown JSON must cross the production validation boundary.
 function readRuntime(path: string): unknown {
@@ -19,12 +20,12 @@ function readRuntime(path: string): unknown {
 
 function runtimeCatalog() {
   const active = readRuntime('system.json');
-  const archive = readRuntime('manifests/1.0.0/system.json');
+  const archive = readRuntime(archivePath);
   expect(active).toEqual(archive);
   const result = createInMemoryDefinitionCatalog(
     [
       { document: 'system.json', value: active },
-      { document: 'manifests/1.0.0/system.json', value: archive },
+      { document: archivePath, value: archive },
     ],
     [{ document: templatePath, value: readRuntime(templatePath) }],
   );
@@ -108,11 +109,11 @@ describe('Rogue Trader runtime definitions', () => {
     expect(readRuntime('system.json')).toEqual(loadFixtures().manifest);
   });
 
-  it('creates independent blank sheets for both roles and calculates their defaults', () => {
+  it('creates independent blank sheets for both roles with final results and presentation', () => {
     const catalog = runtimeCatalog();
     const references = {
-      system: { id: 'rogue-trader', version: '1.0.0' },
-      template: { id: 'creature-core', version: '1.0.0' },
+      system: { id: 'rogue-trader', version: '1.0.1' },
+      template: { id: 'creature-core', version: '1.0.1' },
     };
     const defaults = {
       weaponSkill: 0,
@@ -133,13 +134,15 @@ describe('Rogue Trader runtime definitions', () => {
       expect(result).toEqual({
         success: true,
         value: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           ...references,
           id: expectedId,
           entityType: 'creature',
           role,
           displayName: 'Creature',
           values: defaults,
+          derived: statistics(0, 0, 0, [0.5, 1, 2, 3]),
+          presentation: loadFixtures().character.presentation,
           entries: [],
           createdAt: timestamp,
           modifiedAt: timestamp,
@@ -185,8 +188,7 @@ describe('Rogue Trader runtime definitions', () => {
     // A rejected source edit must preserve the last valid score, effect and results.
     const rejected = editInstance(
       catalog,
-      edited.value.instance,
-
+      edited.value,
       clock,
       'ork',
       'set-value',
@@ -198,15 +200,14 @@ describe('Rogue Trader runtime definitions', () => {
       diagnostics: [{ code: 'INVALID_VALUE', document: 'ork values', pointer: '/toughness' }],
     });
     expect(rejected).not.toHaveProperty('value');
-    expect(edited.value.instance.entries.map(({ id }) => id)).toContain('unnatural-toughness');
-    expect(edited.value.instance.values.toughness).toBe(50);
+    expect(edited.value.entries.map(({ id }) => id)).toContain('unnatural-toughness');
+    expect(edited.value.values.toughness).toBe(50);
     expect(edited.value.derived.toughnessBonus).toBe(10);
 
     // Remove the entry in a separate call and recalculate from the retained Toughness of 50.
     const recovered = editInstance(
       catalog,
-      edited.value.instance,
-
+      edited.value,
       clock,
       'ork',
       'remove-entry',
@@ -215,10 +216,21 @@ describe('Rogue Trader runtime definitions', () => {
     expect(recovered).toMatchObject({
       success: true,
       value: {
-        instance: { id: monster.id, values: { toughness: 50 }, entries: [] },
+        id: monster.id,
+        values: { toughness: 50 },
+        entries: [],
         derived: statistics(5, 5, 3, [3, 6, 9, 18]),
       },
     });
+    if (!recovered.success) throw new Error(JSON.stringify(recovered.diagnostics));
+    const renamed = editInstance(catalog, recovered.value, clock, 'ork', 'set-display-name', 'Ork');
+    expect(renamed).toMatchObject({
+      success: true,
+      value: { displayName: 'Ork', derived: recovered.value.derived },
+    });
+    expect(
+      editInstance(catalog, recovered.value, clock, 'ork', 'set-value', 'toughness', 50),
+    ).toEqual(recovered);
     expect(monster).toEqual(originalMonster);
     expect(character).toEqual(originalCharacter);
     expect(calculate(character)).toEqual({
@@ -229,6 +241,8 @@ describe('Rogue Trader runtime definitions', () => {
 
   it('resolves both roles and matches independent worked and edited results', () => {
     const { character, monster } = loadFixtures();
+    expect(character.derived).toEqual(statistics(4, 3, 3, [3, 6, 9, 18]));
+    expect(monster.derived).toEqual(statistics(5, 8, 3, [3, 6, 9, 18]));
     expect(calculate(character)).toEqual({
       success: true,
       value: statistics(4, 3, 3, [3, 6, 9, 18]),
@@ -333,13 +347,13 @@ describe('Rogue Trader runtime definitions', () => {
     expect(calculate(instance)).toEqual(valid);
   });
 
-  it('rejects an unavailable exact version instead of falling back', () => {
+  it.each(['1.0.0', '9.0.0'])('rejects unavailable template revision %s', (version) => {
     const instance = loadFixtures().character;
     const result = resolveDefinitions(
       runtimeCatalog(),
       {
         system: instance.system,
-        template: { ...instance.template, version: '9.0.0' },
+        template: { ...instance.template, version },
       },
       'request',
     );

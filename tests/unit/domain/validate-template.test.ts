@@ -53,6 +53,7 @@ test.each([
 });
 
 const malformed: [string, unknown][] = [
+  ['schemaVersion', 1],
   ['schemaVersion', '1'],
   ['id', 'Invalid'],
   ['version', '1.0'],

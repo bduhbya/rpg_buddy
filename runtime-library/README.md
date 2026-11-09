@@ -7,11 +7,11 @@ This directory is the maintained seed content for a future user-selected library
 ```text
 RPG_systems/rogue-trader/
   system.json
-  manifests/1.0.0/system.json
-  templates/creature-core/1.0.0/template.json
+  manifests/1.0.1/system.json
+  templates/creature-core/1.0.1/template.json
 ```
 
-The active manifest and archived 1.0.0 manifest are identical. The archive preserves exact-version resolution when active versions change later. Definition identity comes from IDs and exact versions; canonical directories mirror those identities. Published id/version pairs must remain immutable; future changed definitions require new versions. These files follow the existing [v1 contract](../data_contracts/contracts.md).
+The active manifest matches the `1.0.1` archive. The definitions declare `schemaVersion: 2`. See the [versioning policy](../data_contracts/README.md#versioning-and-change-history).
 
 ## Supported scope
 
@@ -23,7 +23,7 @@ The [approved source review](../specs/2026-10-28_source-review-scope/source-revi
 
 ## Representative instances and verification
 
-The [Explorator](../data_contracts/examples/explorator.instance.json) and [Ork Freebooter](../data_contracts/examples/ork-freebooter.instance.json) remain verification fixtures, not distributable library instances or template defaults. Both reference this same exact creature template. The Ork owns its explicit Unnatural Toughness x2 snapshot, citing printed pp. 368 and 377. Calculations use that effect, never its name or role. Example identities and timestamps are not instance-creation policies.
+The [Explorator](../data_contracts/examples/v2/explorator.instance.json) and [Ork Freebooter](../data_contracts/examples/v2/ork-freebooter.instance.json) are complete v2 verification fixtures. Both reference creature-core `1.0.1`. The Ork owns its explicit Unnatural Toughness x2 snapshot, citing printed pp. 368 and 377. Calculations use that effect independently of its name or role.
 
 Expected example results: Explorator SB4/TB3/AB3; Ork SB5/TB8/AB3. Both have movement3/6/9/18. Editing Ork Toughness to49 retains TB8;50 produces TB10. No complete character legality, combat automation or full bestiary is implied.
 

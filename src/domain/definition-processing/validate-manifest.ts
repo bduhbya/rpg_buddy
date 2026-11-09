@@ -4,7 +4,7 @@ import { childPointer, DefinitionChecks } from '../instances/structural-validati
 import type { ValidationResult } from '../instances/structural-validation';
 
 /**
- * Validate a parsed v1 manifest and its document-local invariants.
+ * Validate a parsed v2 manifest and its document-local invariants.
  * @param value Parsed data to check, including the list of exact template references.
  * @param document Logical document label attached to diagnostics.
  * @returns The validated input or diagnostics. Template availability is checked during resolution.
@@ -17,7 +17,7 @@ export function validateSystemManifest(
   if (
     checks.object(value, '', ['schemaVersion', 'id', 'version', 'label', 'source', 'templates'])
   ) {
-    checks.schemaVersion(value);
+    checks.definitionSchemaVersion(value);
     checks.slug(value.id, '/id');
     checks.version(value.version, '/version');
     checks.text(value.label, '/label');

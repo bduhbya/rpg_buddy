@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 2,
+  "id": "example-explorator-001",
+  "system": {
+    "id": "rogue-trader",
+    "version": "1.0.1"
+  },
+  "template": {
+    "id": "creature-core",
+    "version": "1.0.1"
+  },
+  "displayName": "Example Explorator",
+  "values": {
+    "weaponSkill": 36,
+    "ballisticSkill": 33,
+    "strength": 41,
+    "toughness": 35,
+    "agility": 34,
+    "intelligence": 37,
+    "perception": 40,
+    "willpower": 39,
+    "fellowship": 33
+  },
+  "createdAt": "2026-10-28T18:00:00Z",
+  "modifiedAt": "2026-10-28T18:00:00Z",
+  "role": "character",
+  "entityType": "creature",
+  "entries": [],
+  "career": "Explorator",
+  "derived": {
+    "strengthBonus": 4,
+    "toughnessBonus": 3,
+    "agilityBonus": 3,
+    "halfMove": 3,
+    "fullMove": 6,
+    "chargeMove": 9,
+    "runMove": 18
+  },
+  "presentation": {
+    "sections": [
+      {
+        "id": "characteristics",
+        "label": "Characteristics",
+        "fields": [
+          "weaponSkill",
+          "ballisticSkill",
+          "strength",
+          "toughness",
+          "agility",
+          "intelligence",
+          "perception",
+          "willpower",
+          "fellowship"
+        ]
+      },
+      {
+        "id": "bonuses",
+        "label": "Bonuses",
+        "fields": ["strengthBonus", "toughnessBonus", "agilityBonus"]
+      },
+      {
+        "id": "movement",
+        "label": "Movement",
+        "fields": ["halfMove", "fullMove", "chargeMove", "runMove"]
+      }
+    ],
+    "fields": {
+      "weaponSkill": {
+        "label": "Weapon Skill"
+      },
+      "ballisticSkill": {
+        "label": "Ballistic Skill"
+      },
+      "strength": {
+        "label": "Strength"
+      },
+      "toughness": {
+        "label": "Toughness"
+      },
+      "agility": {
+        "label": "Agility"
+      },
+      "intelligence": {
+        "label": "Intelligence"
+      },
+      "perception": {
+        "label": "Perception"
+      },
+      "willpower": {
+        "label": "Willpower"
+      },
+      "fellowship": {
+        "label": "Fellowship"
+      },
+      "strengthBonus": {
+        "label": "Strength Bonus"
+      },
+      "toughnessBonus": {
+        "label": "Toughness Bonus"
+      },
+      "agilityBonus": {
+        "label": "Agility Bonus"
+      },
+      "halfMove": {
+        "label": "Half Move",
+        "unit": "metres/round"
+      },
+      "fullMove": {
+        "label": "Full Move",
+        "unit": "metres/round"
+      },
+      "chargeMove": {
+        "label": "Charge",
+        "unit": "metres/round"
+      },
+      "runMove": {
+        "label": "Run",
+        "unit": "metres/round"
+      }
+    }
+  }
+}

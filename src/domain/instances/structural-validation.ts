@@ -146,11 +146,11 @@ export class DefinitionChecks {
   }
 
   // Reject an unsupported schema version when the property is present.
-  schemaVersion(value: JsonObject): void {
-    if (Object.hasOwn(value, 'schemaVersion') && value.schemaVersion !== 1) {
+  definitionSchemaVersion(value: JsonObject): void {
+    if (Object.hasOwn(value, 'schemaVersion') && value.schemaVersion !== 2) {
       this.issue(
         '/schemaVersion',
-        'Expected supported schema version 1.',
+        'Expected definition schema version 2.',
         'UNSUPPORTED_SCHEMA_VERSION',
       );
     }
