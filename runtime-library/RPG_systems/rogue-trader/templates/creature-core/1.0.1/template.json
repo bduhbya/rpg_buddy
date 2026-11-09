@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "creature-core",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "system": {
     "id": "rogue-trader",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "label": "Creature - core statistics",
   "defaultDisplayName": "Creature",
@@ -45,10 +45,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     },
     {
       "id": "ballisticSkill",
@@ -59,10 +56,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     },
     {
       "id": "strength",
@@ -73,10 +67,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     },
     {
       "id": "toughness",
@@ -87,10 +78,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     },
     {
       "id": "agility",
@@ -101,10 +89,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     },
     {
       "id": "intelligence",
@@ -115,10 +100,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     },
     {
       "id": "perception",
@@ -129,10 +111,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     },
     {
       "id": "willpower",
@@ -143,10 +122,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     },
     {
       "id": "fellowship",
@@ -157,10 +133,7 @@
       "type": "integer",
       "default": 0,
       "minimum": 0,
-      "maximum": 99,
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
-      }
+      "maximum": 99
     }
   ],
   "derived": [
@@ -184,9 +157,6 @@
             "value": 10
           }
         }
-      },
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -209,9 +179,6 @@
             "value": 10
           }
         }
-      },
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -234,9 +201,6 @@
             "value": 10
           }
         }
-      },
-      "metadata": {
-        "sourceRegisterRefs": ["S2"]
       }
     },
     {
@@ -275,9 +239,6 @@
             "value": 1
           }
         }
-      },
-      "metadata": {
-        "sourceRegisterRefs": ["S4"]
       }
     },
     {
@@ -316,9 +277,6 @@
             "value": 2
           }
         }
-      },
-      "metadata": {
-        "sourceRegisterRefs": ["S4"]
       }
     },
     {
@@ -357,9 +315,6 @@
             "value": 3
           }
         }
-      },
-      "metadata": {
-        "sourceRegisterRefs": ["S4"]
       }
     },
     {
@@ -398,19 +353,9 @@
             "value": 6
           }
         }
-      },
-      "metadata": {
-        "sourceRegisterRefs": ["S4"]
       }
     }
   ],
   "entityType": "creature",
-  "modifierTargets": ["strengthBonus", "toughnessBonus"],
-  "metadata": {
-    "sourceReview": "specs/2026-10-28_source-review-scope/source-review.md",
-    "requirementRefs": [
-      "specs/2026-10-28_data-contracts/requirements.md: DC-5",
-      "specs/2026-10-28_data-contracts/requirements.md: DC-8"
-    ]
-  }
+  "modifierTargets": ["strengthBonus", "toughnessBonus"]
 }

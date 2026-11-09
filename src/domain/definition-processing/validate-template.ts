@@ -45,7 +45,7 @@ function checkField(
 }
 
 /**
- * Validate a parsed v1 template's structure, local invariants, and expression syntax.
+ * Validate a parsed v2 template's structure, local invariants, and expression syntax.
  * @param value Parsed template data to check.
  * @param document Logical document label attached to diagnostics.
  * @returns The validated input or diagnostics. Calculation separately checks expression semantics.
@@ -74,7 +74,7 @@ export function validateTemplate(value: unknown, document: string): ValidationRe
     )
   )
     return checks.result<Template>(value);
-  checks.schemaVersion(value);
+  checks.definitionSchemaVersion(value);
   checks.slug(value.id, '/id');
   checks.version(value.version, '/version');
   checks.reference(value.system, '/system');

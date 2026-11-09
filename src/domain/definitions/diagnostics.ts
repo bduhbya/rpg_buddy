@@ -1,4 +1,4 @@
-/** Stable codes from the v1 normative contract; messages are for people. */
+/** Stable codes from the data contracts. Messages are for people. */
 export type DiagnosticCode =
   | 'INVALID_JSON'
   | 'UNSUPPORTED_SCHEMA_VERSION'

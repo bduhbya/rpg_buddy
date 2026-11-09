@@ -1,5 +1,5 @@
 /**
- * The v1 document syntax, not a proof of operand types or valid dependencies.
+ * Expression syntax. Operand types and dependencies are validated separately.
  * Later validation checks every branch; evaluation will select an if branch lazily.
  */
 export type Expression =

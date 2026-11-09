@@ -1,4 +1,5 @@
 import { calculateWithEntries } from '../calculation/calculate-with-entries';
+import { validateEntryEffects } from '../calculation/validate-entry-effects';
 import type { InMemoryDefinitionCatalog } from '../definition-processing/in-memory-definition-catalog';
 import { resolveDefinitions } from '../definition-processing/resolve-definitions';
 import { NONBLANK_TEXT_PATTERN } from '../definitions/definition-patterns';
@@ -16,13 +17,7 @@ export type InstanceEditOperation =
   | [operation: 'add-entry' | 'replace-entry', entryJson: string]
   | [operation: 'remove-entry', entryId: string];
 
-// Return source state and derived values together so callers can adopt both at once.
-export interface EditedInstance {
-  instance: Instance;
-  derived: Record<string, number>;
-}
-
-// The calculation engine validates candidate snapshots before they become instance entries.
+// Parsed entry snapshots stay unknown until entry validation succeeds.
 type EditCandidate = Omit<Instance, 'entries'> & { entries: unknown[] };
 
 // JSON.parse checks syntax. Scan its input separately because parsing drops duplicate keys.
@@ -68,7 +63,7 @@ function parseEntryJson(text: string, checks: DefinitionChecks): unknown {
   return entry;
 }
 
-// Apply one entry operation while leaving snapshot and effect validation to the engine.
+// Apply one entry operation. Validate the resulting snapshots together before publishing.
 function editEntries(
   entries: Entry[],
   operation: 'add-entry' | 'replace-entry' | 'remove-entry',
@@ -134,7 +129,7 @@ function applyOperation(
         checks.issue('/fieldId', 'Expected an input field ID string.');
       else if (typeof value !== 'number')
         checks.issue('/value', 'Expected a number.', 'INVALID_VALUE');
-      else candidate.values = { ...candidate.values, [argument]: value };
+      else candidate.values = { ...candidate.values, [argument]: value === 0 ? 0 : value };
       break;
     case 'set-display-name':
       if (typeof argument !== 'string' || !NONBLANK_TEXT_PATTERN.test(argument)) {
@@ -166,16 +161,16 @@ function applyOperation(
 }
 
 /**
- * Apply one edit and recompute derived values without mutating the current instance.
+ * Apply one edit to a private sheet candidate and recalculate only when calculation inputs change.
  * @param catalog Validated catalog that supplies the instance's exact system and template.
  * @param current Previously valid in-memory instance to edit.
- * @param clock Supplies a UTC modification timestamp after a changed candidate calculates successfully.
+ * @param clock Supplies a UTC modification timestamp after validation and any required calculation.
  * Equivalent edits keep the previous timestamp and skip the clock.
  * @param diagnosticSource Label for edit diagnostics. Calculation uses separate logical documents
  * named by appending " values" and " entries" to this label.
  * @param operation Operation name followed by its primitive arguments. Use null to clear career,
  * JSON text for add or replace, and a local entry ID for remove. Replace uses the ID in the JSON.
- * @returns An independent instance and its derived values, or diagnostics without partial results.
+ * @returns An independent complete sheet, or diagnostics without partial results.
  */
 export function editInstance(
   catalog: InMemoryDefinitionCatalog,
@@ -183,7 +178,7 @@ export function editInstance(
   clock: { now(): string },
   diagnosticSource: string,
   ...operation: InstanceEditOperation
-): ValidationResult<EditedInstance> {
+): ValidationResult<Instance> {
   const edited = applyOperation(structuredClone(current), operation, diagnosticSource);
   if (!edited.success) return edited;
   const candidate = edited.value;
@@ -195,18 +190,40 @@ export function editInstance(
   );
   if (!resolved.success) return resolved;
 
-  const calculated = calculateWithEntries(
-    resolved.value.template,
-    { document: `${diagnosticSource} values`, value: candidate.values },
-    { document: `${diagnosticSource} entries`, value: candidate.entries },
-  );
-  if (!calculated.success) return calculated;
+  const template = resolved.value.template;
+  const entries = { document: `${diagnosticSource} entries`, value: candidate.entries };
+  const valuesChanged = !sameJsonContent(candidate.values, current.values);
+  const entriesChanged = !sameJsonContent(candidate.entries, current.entries);
+  let effectsChanged = false;
+  if (entriesChanged) {
+    const validated = validateEntryEffects(template.value, entries);
+    if (!validated.success) return validated;
 
+    // Entry order and descriptive data do not affect the validated effect set.
+    const previousEffects = current.entries.flatMap((entry) => entry.effects);
+    effectsChanged =
+      previousEffects.length !== validated.value.size ||
+      previousEffects.some(
+        (effect) => !sameJsonContent(effect, validated.value.get(effect.target)?.effect),
+      );
+  }
+  if (valuesChanged || effectsChanged) {
+    const calculated = calculateWithEntries(
+      template,
+      {
+        document: `${diagnosticSource} values`,
+        value: candidate.values,
+      },
+      entries,
+    );
+    if (!calculated.success) return calculated;
+    candidate.derived = calculated.value;
+  }
   const changed =
     candidate.displayName !== current.displayName ||
     candidate.career !== current.career ||
-    !sameJsonContent(candidate.entries, current.entries) ||
-    !sameJsonContent(candidate.values, current.values);
+    entriesChanged ||
+    valuesChanged;
 
   if (changed) {
     const checks = new DefinitionChecks(diagnosticSource);
@@ -228,6 +245,5 @@ export function editInstance(
     candidate.modifiedAt = timestamp;
   }
 
-  // Return the same candidate that the calculation engine validated.
-  return { success: true, value: { instance: candidate as Instance, derived: calculated.value } };
+  return { success: true, value: candidate as Instance };
 }

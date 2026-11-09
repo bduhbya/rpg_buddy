@@ -1,12 +1,12 @@
 # Domain architecture
 
-This is a living guide to the domain code. Update it when responsibilities, public APIs, data ownership or calculation flow change. The [constitution](../../specs/mission.md) and [v1 contract](../../data_contracts/contracts.md) define the governing requirements. This guide describes their implementation. For call signatures and diagnostic details, see the [domain API reference](README.md).
+This is a living guide to the domain code. Update it when responsibilities, public APIs, data ownership or calculation flow change. The [constitution](../../specs/mission.md) and [data contracts](../../data_contracts/contracts.md) define the governing requirements. This guide describes their implementation. For call signatures and diagnostic details, see the [domain API reference](README.md).
 
 ## Use cases
 
 - [Resolve a system and template](#resolve-a-system-and-template) before creating or calculating an instance.
-- [Create an instance](#create-an-instance) with independent source values.
-- [Edit an instance](#edit-an-instance) and recompute its derived values.
+- [Create an instance](#create-an-instance) with independent source values, results and presentation.
+- [Edit an instance](#edit-an-instance) and update its recorded results when calculation inputs change.
 - [Calculate base values](#calculate-base-values) from a resolved template and editable inputs.
 - [Calculate with entry effects](#calculate-with-entry-effects) to include selected instance features.
 
@@ -36,23 +36,42 @@ Use this when a caller wants a new character or monster initialized from templat
 ```mermaid
 flowchart TD
     A["System and template references, plus role<br/>CreateInstanceRequest · create-instance.ts"] --> B["Validate request and resolve exact pair<br/>createInstance · create-instance.ts<br/>resolveDefinitions · resolve-definitions.ts"]
-    B --> C["Obtain and validate ID, then UTC time<br/>createInstance · create-instance.ts"]
+    B --> F["Calculate initial results from defaults<br/>calculateBase · calculate-base.ts"]
+    F --> C["Obtain and validate ID, then UTC time<br/>createInstance · create-instance.ts"]
     P["Caller supplies ID and time providers<br/>InstanceCreationProviders · create-instance.ts"] --> C
-    C --> D["Build independent instance from defaults<br/>createInstance · create-instance.ts"]
-    D --> E["Editable values and empty entries<br/>Instance · document-models.ts"]
+    C --> D["Snapshot ordered sections, labels and units<br/>createInstance · create-instance.ts"]
+    D --> E["Complete v2 sheet<br/>Instance · document-models.ts"]
 ```
 
-[Instance creation](instances/create-instance.ts) calls the providers after resolution succeeds. The caller supplies a fresh ID. The domain uses one timestamp for both creation and modification. Each instance owns its reference objects, input map and entries array. Calculation is a separate operation using the instance's inputs and, when applicable, its entries.
+[Instance creation](instances/create-instance.ts) calculates from the exact template's editable defaults and empty entries. After calculation succeeds, the providers supply a fresh ID and one timestamp for both creation and modification. Each instance owns its reference objects, input map, entries, final results and presentation snapshot.
 
 ## Edit an instance
 
 Pass a previously valid in-memory instance and one operation to [editInstance](instances/edit-instance.ts). Scalar operations use primitive arguments. Adding or replacing an entry uses JSON text for the complete snapshot, and removal uses its local ID. See the [operation signatures](README.md#instance-editing).
 
-The operation applies the edit to a private candidate. It resolves the instance's exact definitions and validates and recomputes the candidate through [calculateWithEntries](calculation/calculate-with-entries.ts). The instance in the success result is the source state used for that calculation.
+```mermaid
+flowchart TD
+    A["Previously valid sheet and one operation<br/>editInstance · edit-instance.ts"] --> B["Apply edit to a private copy and resolve exact definitions"]
+    B --> C["Validate changed entries and compare effects by target"]
+    C --> D{"Source values or effects changed?"}
+    D -->|Yes| E["Recompute final values<br/>calculateWithEntries · calculate-with-entries.ts"]
+    D -->|No| F["Carry forward recorded values"]
+    E --> G{"Sheet changed?"}
+    F --> G
+    G -->|Yes| H["Read and validate modification time"]
+    G -->|No| I["Return the complete sheet"]
+    H --> I
+    B -->|Failure| J["Return diagnostics and preserve the prior sheet"]
+    C -->|Failure| J
+    E -->|Failure| J
+    H -->|Failure| J
+```
+
+[calculateWithEntries](calculation/calculate-with-entries.ts) recomputes from the candidate's source values and effects. Comparing effects by target lets a descriptive entry edit keep the recorded results even when the entry snapshot changes.
 
 Setting the authored Ork's Toughness from 45 to 50 raises its effect-adjusted Toughness Bonus from 8 to 10. Removing Unnatural Toughness in a separate call recalculates the bonus to 5. Each call succeeds or fails independently, so the caller can continue from the last successful instance and results.
 
-A changed instance receives a modification timestamp from the caller's UTC clock after calculation succeeds. An equivalent edit keeps the timestamp. Calculation diagnostics for source values and entries use separate logical documents, such as `ork values` and `ork entries`.
+A changed instance receives a modification timestamp from the caller's UTC clock after validation and any required calculation succeed. An equivalent edit keeps the timestamp and skips the clock. Calculation diagnostics for source values and entries use separate logical documents, such as `ork values` and `ork entries`.
 
 ## Calculate base values
 
@@ -74,7 +93,7 @@ Supported operations are `constant`, `field`, `floor`, `divide`, `multiply`, `eq
 
 Both conditional branches contribute dependencies and undergo syntax and type checks. Evaluation executes only the selected branch. Derived fields must produce numbers, with boolean expressions permitted as conditional tests.
 
-Numbers follow the v1 finite binary64 and safe-integer rules. Division by either signed zero fails. Every evaluated numeric intermediate is checked, negative zero becomes zero, and `floor` provides the explicit rounding operation.
+Numbers follow the contract's finite binary64 and safe-integer rules. Division by either signed zero fails. Every evaluated numeric intermediate is checked, negative zero becomes zero, and `floor` provides the explicit rounding operation.
 
 ### Example
 
@@ -121,7 +140,7 @@ flowchart TD
     F -->|All fields complete| G["Derived values by field ID<br/>ValidationResult · structural-validation.ts"]
 ```
 
-[Entry validation](calculation/validate-entry-effects.ts) runs after dependency planning and before expression type and input checks. It validates the closed v1 entry shape and effect targets before arithmetic. Entry diagnostic pointers are relative to the supplied array's logical document root, such as `/0/effects/0/target`.
+[Entry validation](calculation/validate-entry-effects.ts) runs after dependency planning and before expression type and input checks. It validates the closed entry shape and effect targets before arithmetic. Entry diagnostic pointers are relative to the supplied array's logical document root, such as `/0/effects/0/target`.
 
 Entry IDs must be unique. Descriptive fields and optional metadata are validated but never interpreted as rules. Multipliers must be positive safe integers targeting a declared derived modifier target. A second effect on a target fails with `MODIFIER_CONFLICT` and a related location for the first effect, even inside the same entry or with identical factors.
 
@@ -133,16 +152,16 @@ Effects add no dependency edges. Each invocation owns fresh maps and preserves t
 
 ## Shared data and utilities
 
-| Piece              | Responsibility                                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| System manifest    | Identifies a system version and lists its available exact template versions.                                                   |
-| Template           | Defines generic sheet structure, inputs, bounds, defaults, derived formulas, sections and eligible modifier targets.           |
-| Instance           | Holds one entity's identity, role, editable values, selected entry snapshots, timestamps and exact system/template references. |
-| Calculation result | Holds recomputed derived values for the supplied inputs. The caller can use these for presentation.                            |
+| Piece              | Responsibility                                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| System manifest    | Identifies a system version and lists its available exact template versions.                                               |
+| Template           | Defines generic sheet structure, inputs, bounds, defaults, derived formulas, sections and eligible modifier targets.       |
+| Instance           | Owns identity, role, exact references, timestamps, editable values, entries, final statistics and presentation.            |
+| Calculation result | Holds freshly evaluated statistics. Creation and calculation-affecting edits publish them as the instance's `derived` map. |
 
-Calculation definitions live in templates. Instances remain small and readable, including for advanced users writing JSON manually. A saved instance carries its current source state and exact definition references. Resolving those references supplies the rules needed to calculate its derived values.
+Calculation definitions live in templates. A v2 instance carries its source state, final statistics, semantic presentation and exact definition references. Resolving those references supplies the rules for edits. The stored values and presentation are sufficient to display a complete sheet.
 
-Published definition versions are immutable. A newer template does not implicitly change an existing instance's rules. Loading an instance requires its referenced definitions to be available.
+Published definition versions are immutable. A newer template does not implicitly change an existing instance's rules. Phase 17 will implement loading and the read-only path for valid sheets whose exact definitions are unavailable.
 
 Selected entries own snapshots of their descriptions and explicit effects. Those selections can survive changes to a future feature library. Their effects are part of the instance state, while generic formulas and permitted effect targets belong to the template.
 
@@ -157,8 +176,8 @@ Domain modules depend on other domain modules. Filesystem access, Electron, Reac
 | Definition structure validation, in-memory catalog and exact resolution | Implemented.                                                                         |
 | Dependency analysis and base expression evaluation                      | Implemented.                                                                         |
 | Instance-entry effect application                                       | Implemented; Phase 10 acceptance and verifier migration are complete.                |
-| In-memory instance creation                                             | Implemented.                                                                         |
-| In-memory instance editing                                              | Implemented for source values, display name, career and entry snapshots.             |
+| In-memory instance creation                                             | Produces complete v2 sheets with calculated initial values and presentation.         |
+| In-memory instance editing                                              | Publishes complete v2 sheets. Evaluates only when source values or effects change.   |
 | Complete saved-instance validation                                      | Planned in a later roadmap phase.                                                    |
 | Library discovery, selected-system loading and persistence              | Planned in later roadmap phases.                                                     |
 | Reusable feature library and selection provenance                       | Requires its own future specification. Current entries are instance-owned snapshots. |
@@ -171,4 +190,4 @@ Domain tests live under [tests/unit/domain](../../tests/unit/domain/). The depen
 
 Run `npm run test:unit` and `npm run typecheck` for domain changes. Run `npm run format:check` for documentation formatting. Follow the active phase's validation document for additional required checks.
 
-When changing a public domain operation, update the relevant use case, flow and example here as needed. Keep implementation status explicit and preserve the distinction between stored source state and recomputed results. Detailed decisions and validation evidence remain in the phase specifications.
+When changing a public domain operation, update the relevant use case, flow and example here as needed. Keep implementation status explicit and distinguish recorded final values from explicit calculation calls. Detailed decisions and validation evidence remain in the phase specifications.

@@ -1,4 +1,5 @@
-import { expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
+import * as calculations from '../../../src/domain/calculation/calculate-with-entries';
 import { createInMemoryDefinitionCatalog } from '../../../src/domain/definition-processing/in-memory-definition-catalog';
 import { editInstance } from '../../../src/domain/instances/edit-instance';
 import type { InstanceEditOperation } from '../../../src/domain/instances/edit-instance';
@@ -14,6 +15,10 @@ const strengthEntry = {
   metadata: { sourceRegisterRefs: ['example'] },
 };
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 function setup() {
   const { manifest, template, character, monster } = loadFixtures();
   const catalog = createInMemoryDefinitionCatalog(
@@ -25,20 +30,19 @@ function setup() {
   return { catalog: catalog.value, character, monster, clock };
 }
 
-test('sets one source value and returns independent source state and effect-aware results', () => {
+test('sets one source value and stores effect-aware results in an independent sheet', () => {
   const { catalog, character, monster, clock } = setup();
   const before = structuredClone({ character, monster });
 
   const result = editInstance(catalog, monster, clock, 'ork', 'set-value', 'toughness', 50);
   if (!result.success) throw new Error('Expected a valid edit');
-  const { instance, derived } = result.value;
+  const instance = result.value;
   expect(instance).toEqual({
     ...before.monster,
     values: { ...before.monster.values, toughness: 50 },
+    derived: { ...before.monster.derived, toughnessBonus: 10 },
     modifiedAt: editTime,
   });
-  expect(derived).toMatchObject({ toughnessBonus: 10, agilityBonus: 3 });
-  expect(instance).not.toHaveProperty('derived');
   expect(clock.now).toHaveBeenCalledOnce();
 
   // Mutate nested results to check that the original source state owns its data.
@@ -50,11 +54,16 @@ test('sets one source value and returns independent source state and effect-awar
   refs.push('extra');
   instance.template.version = '9.0.0';
   instance.values.toughness = 99;
+  instance.derived.toughnessBonus = 1;
+  instance.presentation.fields.toughness.label = 'Changed';
   expect({ character, monster }).toEqual(before);
 });
 
 test('sets the display name and sets or clears career in separate calls', () => {
   const { catalog, character, clock } = setup();
+  const calculator = vi.spyOn(calculations, 'calculateWithEntries');
+  // A valid recorded result can differ from a fresh evaluation.
+  character.derived.halfMove = 91.5;
   const renamed = editInstance(
     catalog,
     character,
@@ -64,49 +73,36 @@ test('sets the display name and sets or clears career in separate calls', () => 
     ' Explorer ',
   );
   if (!renamed.success) throw new Error('Expected a valid name edit');
-  expect(renamed.value.instance.displayName).toBe(' Explorer ');
-  expect(renamed.value.instance.career).toBe(character.career);
+  expect(renamed.value.displayName).toBe(' Explorer ');
+  expect(renamed.value.career).toBe(character.career);
 
-  const hired = editInstance(
-    catalog,
-    renamed.value.instance,
-    clock,
-    'character',
-    'set-career',
-    'Mercenary',
-  );
+  const hired = editInstance(catalog, renamed.value, clock, 'character', 'set-career', 'Mercenary');
   if (!hired.success) throw new Error('Expected a valid career edit');
-  expect(hired.value.instance.career).toBe('Mercenary');
+  expect(hired.value.career).toBe('Mercenary');
 
-  const cleared = editInstance(
-    catalog,
-    hired.value.instance,
-    clock,
-    'character',
-    'set-career',
-    null,
-  );
+  const cleared = editInstance(catalog, hired.value, clock, 'character', 'set-career', null);
   if (!cleared.success) throw new Error('Expected a valid career removal');
-  expect(cleared.value.instance).not.toHaveProperty('career');
-  expect(cleared.value.instance.displayName).toBe(' Explorer ');
+  expect(cleared.value).not.toHaveProperty('career');
+  expect(cleared.value.displayName).toBe(' Explorer ');
+  expect(cleared.value.derived).toEqual(character.derived);
   expect(cleared.value.derived).toEqual(renamed.value.derived);
   expect(cleared.value.derived).not.toBe(renamed.value.derived);
   expect(clock.now).toHaveBeenCalledTimes(3);
+  expect(calculator).not.toHaveBeenCalled();
 });
 
 test.each<InstanceEditOperation>([
   ['set-value', 'toughness', 45],
   ['set-display-name', 'Example Ork Freebooter'],
   ['set-career', null],
-])('recomputes an equivalent %s edit without reading the clock', (...operation) => {
+])('preserves an equivalent %s edit without calculating or reading the clock', (...operation) => {
   const { catalog, monster, clock } = setup();
+  const calculator = vi.spyOn(calculations, 'calculateWithEntries');
   const result = editInstance(catalog, monster, clock, 'ork', ...operation);
-  expect(result).toMatchObject({
-    success: true,
-    value: { instance: monster, derived: { toughnessBonus: 8 } },
-  });
+  expect(result).toEqual({ success: true, value: monster });
   if (!result.success) throw new Error('Expected an equivalent edit');
-  expect(result.value.instance).not.toBe(monster);
+  expect(result.value).not.toBe(monster);
+  expect(calculator).not.toHaveBeenCalled();
   expect(clock.now).not.toHaveBeenCalled();
 });
 
@@ -191,25 +187,27 @@ test('requires the exact template version before calculating or reading the cloc
 test('preserves the last valid edit on arithmetic failure and can recover', () => {
   const { catalog, monster, clock } = setup();
   // At Toughness 15 the base bonus is 1, so the largest safe factor still fits.
-  monster.values.toughness = 15;
-  const unnaturalToughness = monster.entries.find(({ id }) => id === 'unnatural-toughness');
+  const lowered = editInstance(catalog, monster, clock, 'ork', 'set-value', 'toughness', 15);
+  if (!lowered.success) throw new Error('Expected a valid source edit');
+  const unnaturalToughness = structuredClone(lowered.value.entries[0]);
   const effect = unnaturalToughness?.effects.find(({ target }) => target === 'toughnessBonus');
   if (!effect) throw new Error('Expected the Unnatural Toughness effect');
   effect.factor = Number.MAX_SAFE_INTEGER;
-  const prior = editInstance(catalog, monster, clock, 'ork', 'set-display-name', 'Ork');
+  clock.now.mockClear();
+  const prior = editInstance(
+    catalog,
+    lowered.value,
+    clock,
+    'ork',
+    'replace-entry',
+    JSON.stringify(unnaturalToughness),
+  );
   if (!prior.success) throw new Error('Expected a valid first edit');
+  expect(prior.value.derived.toughnessBonus).toBe(Number.MAX_SAFE_INTEGER);
   const before = structuredClone(prior.value);
 
   // Toughness 20 is a valid source value, but its base bonus of 2 makes the effect overflow.
-  const failure = editInstance(
-    catalog,
-    prior.value.instance,
-    clock,
-    'ork',
-    'set-value',
-    'toughness',
-    20,
-  );
+  const failure = editInstance(catalog, prior.value, clock, 'ork', 'set-value', 'toughness', 20);
   expect(failure).toMatchObject({
     success: false,
     diagnostics: [
@@ -225,19 +223,11 @@ test('preserves the last valid edit on arithmetic failure and can recover', () =
   expect(prior.value).toEqual(before);
   expect(clock.now).toHaveBeenCalledOnce();
 
-  const recovered = editInstance(
-    catalog,
-    prior.value.instance,
-    clock,
-    'ork',
-    'set-value',
-    'toughness',
-    19,
-  );
+  const recovered = editInstance(catalog, prior.value, clock, 'ork', 'set-value', 'toughness', 19);
   expect(recovered).toMatchObject({
     success: true,
     value: {
-      instance: { values: { toughness: 19 } },
+      values: { toughness: 19 },
       derived: { toughnessBonus: Number.MAX_SAFE_INTEGER },
     },
   });
@@ -271,27 +261,28 @@ test.each(['2026-11-07T18:00:00.12345678900Z', '2026-11-07T18:00:00.1234567891Z'
     clock.now.mockReturnValue(time);
     expect(editInstance(catalog, monster, clock, 'ork', 'set-display-name', 'Ork')).toMatchObject({
       success: true,
-      value: { instance: { modifiedAt: time } },
+      value: { modifiedAt: time },
     });
   },
 );
 
-test('contains clock exceptions and allows retry from the same instance', () => {
+test('preserves the complete sheet on a clock exception after calculation and allows retry', () => {
   const { catalog, monster, clock } = setup();
   const before = structuredClone(monster);
   clock.now.mockImplementationOnce(() => {
     throw new Error('private provider error');
   });
-  const result = editInstance(catalog, monster, clock, 'ork', 'set-display-name', 'Ork');
+  const result = editInstance(catalog, monster, clock, 'ork', 'set-value', 'toughness', 50);
   expect(result).toMatchObject({
     success: false,
     diagnostics: [{ code: 'INVALID_VALUE', document: 'ork', pointer: '/modifiedAt' }],
   });
+  expect(result).not.toHaveProperty('value');
   expect(JSON.stringify(result)).not.toContain('private provider error');
   expect(monster).toEqual(before);
-  expect(editInstance(catalog, monster, clock, 'ork', 'set-display-name', 'Ork')).toMatchObject({
+  expect(editInstance(catalog, monster, clock, 'ork', 'set-value', 'toughness', 50)).toMatchObject({
     success: true,
-    value: { instance: { displayName: 'Ork', modifiedAt: editTime } },
+    value: { values: { toughness: 50 }, derived: { toughnessBonus: 10 }, modifiedAt: editTime },
   });
   expect(monster).toEqual(before);
 });
@@ -307,7 +298,7 @@ test('adds, replaces and removes one entry per call while preserving earlier res
     JSON.stringify(strengthEntry),
   );
   if (!added.success) throw new Error('Expected a valid add');
-  expect(added.value.instance.entries).toEqual([...monster.entries, strengthEntry]);
+  expect(added.value.entries).toEqual([...monster.entries, strengthEntry]);
   expect(added.value.derived).toMatchObject({ strengthBonus: 10, toughnessBonus: 8 });
 
   const replacement = {
@@ -317,20 +308,20 @@ test('adds, replaces and removes one entry per call while preserving earlier res
   };
   const updated = editInstance(
     catalog,
-    added.value.instance,
+    added.value,
     clock,
     'ork',
     'replace-entry',
     JSON.stringify(replacement),
   );
   if (!updated.success) throw new Error('Expected a valid replacement');
-  expect(updated.value.instance.entries).toEqual([...monster.entries, replacement]);
+  expect(updated.value.entries).toEqual([...monster.entries, replacement]);
   expect(updated.value.derived).toMatchObject({ strengthBonus: 15, toughnessBonus: 8 });
   expect(added.value.derived.strengthBonus).toBe(10);
 
   const removed = editInstance(
     catalog,
-    updated.value.instance,
+    updated.value,
     clock,
     'ork',
     'remove-entry',
@@ -339,25 +330,26 @@ test('adds, replaces and removes one entry per call while preserving earlier res
   expect(removed).toMatchObject({
     success: true,
     value: {
-      instance: { entries: monster.entries },
+      entries: monster.entries,
       derived: { strengthBonus: 5, toughnessBonus: 8 },
     },
   });
   expect(clock.now).toHaveBeenCalledTimes(3);
 
-  const updatedEntry = updated.value.instance.entries.find(({ id }) => id === strengthEntry.id);
+  const updatedEntry = updated.value.entries.find(({ id }) => id === strengthEntry.id);
   const updatedEffect = updatedEntry?.effects.find(({ target }) => target === 'strengthBonus');
   if (!updatedEffect) throw new Error('Expected the updated effect');
   updatedEffect.factor = 4;
-  expect(added.value.instance.entries).toEqual([...monster.entries, strengthEntry]);
+  expect(added.value.entries).toEqual([...monster.entries, strengthEntry]);
   expect(removed).toMatchObject({
     success: true,
-    value: { instance: { entries: monster.entries } },
+    value: { entries: monster.entries },
   });
 });
 
-test('recomputes an equivalent JSON replacement without reading the clock', () => {
+test('preserves an equivalent JSON replacement without calculating or reading the clock', () => {
   const { catalog, monster, clock } = setup();
+  const calculator = vi.spyOn(calculations, 'calculateWithEntries');
   const original = monster.entries.find(({ id }) => id === 'unnatural-toughness');
   if (!original) throw new Error('Expected the Unnatural Toughness entry');
   const { id, ...rest } = original;
@@ -370,11 +362,59 @@ test('recomputes an equivalent JSON replacement without reading the clock', () =
     'replace-entry',
     JSON.stringify({ ...rest, id }, null, 2),
   );
-  expect(result).toMatchObject({
-    success: true,
-    value: { instance: monster, derived: { toughnessBonus: 8 } },
-  });
+  expect(result).toEqual({ success: true, value: monster });
+  expect(calculator).not.toHaveBeenCalled();
   expect(clock.now).not.toHaveBeenCalled();
+});
+
+test('validates descriptive entry edits and preserves results when effects by target are unchanged', () => {
+  const { catalog, character, clock } = setup();
+  const entry = {
+    ...strengthEntry,
+    effects: [...strengthEntry.effects, { op: 'multiply', target: 'toughnessBonus', factor: 2 }],
+  };
+  const added = editInstance(
+    catalog,
+    character,
+    clock,
+    'sheet',
+    'add-entry',
+    JSON.stringify(entry),
+  );
+  if (!added.success) throw new Error('Expected a valid entry');
+  added.value.derived.toughnessBonus = 91.5;
+  clock.now.mockClear();
+  const calculator = vi.spyOn(calculations, 'calculateWithEntries');
+
+  const replacement = { ...entry, label: 'Renamed', effects: [...entry.effects].reverse() };
+  const edited = editInstance(
+    catalog,
+    added.value,
+    clock,
+    'sheet',
+    'replace-entry',
+    JSON.stringify(replacement),
+  );
+  expect(edited).toEqual({
+    success: true,
+    value: { ...added.value, entries: [replacement], modifiedAt: editTime },
+  });
+  expect(added.value.entries).toEqual([entry]);
+  expect(
+    editInstance(
+      catalog,
+      added.value,
+      clock,
+      'sheet',
+      'replace-entry',
+      JSON.stringify({ ...replacement, label: ' ' }),
+    ),
+  ).toMatchObject({
+    success: false,
+    diagnostics: [{ document: 'sheet entries', pointer: '/0/label' }],
+  });
+  expect(calculator).not.toHaveBeenCalled();
+  expect(clock.now).toHaveBeenCalledOnce();
 });
 
 test.each([
@@ -419,7 +459,7 @@ test('accepts entry JSON with a ten-million-character description', () => {
   const result = editInstance(catalog, monster, clock, 'ork', 'add-entry', entryJson);
 
   if (!result.success) throw new Error('Expected the long description to be accepted');
-  const entry = result.value.instance.entries.find(({ id }) => id === strengthEntry.id);
+  const entry = result.value.entries.find(({ id }) => id === strengthEntry.id);
   expect(entry?.description.length).toBe(length);
   expect(result.value.derived.strengthBonus).toBe(10);
 });
@@ -434,7 +474,7 @@ test('allows braces, quotes and repeated words inside strings and keys reused in
     editInstance(catalog, character, clock, 'character', 'add-entry', JSON.stringify(entry)),
   ).toMatchObject({
     success: true,
-    value: { instance: { entries: [entry] }, derived: { strengthBonus: 8, toughnessBonus: 6 } },
+    value: { entries: [entry], derived: { strengthBonus: 8, toughnessBonus: 6 } },
   });
 });
 

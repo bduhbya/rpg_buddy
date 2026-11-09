@@ -1,6 +1,29 @@
-# Phase 2 contract fixtures
+# Data contracts and fixtures
 
-This folder specifies the data layer and provides demonstration JSON. Normative contracts are in contracts.md; structural schemas are in v1/. The examples are not installed runtime content and the Python harness is not a production engine.
+The [normative contracts](contracts.md) define the data layer. Each supported version bundles its own system, template and instance schemas and a matching set of examples.
+
+| Contract bundle | Schemas    | Examples                    | Instance format |
+| --------------- | ---------- | --------------------------- | --------------- |
+| v2              | [v2/](v2/) | [v2 examples](examples/v2/) | Complete sheet  |
+
+## Versioning and change history
+
+System, template, and instance schemas advance together. Every schema in `vN/` requires `schemaVersion: N`, and every document authored for `examples/vN/` declares it. When a contract changes, add a complete new bundle and bump all three discriminators. Add a change-history entry here with the changes by document type, any version-only bumps, and which older bundles are supported or retired.
+
+`schemaVersion` identifies the JSON contract. A system or template's `version` identifies an immutable definition revision. Republish a definition under a new revision when its `schemaVersion` changes, and update the exact references in the new bundle.
+
+### v2 — Complete instance sheets
+
+- **Instance.** Added the `derived` map and `presentation` snapshot so a sheet carries its recorded statistics, ordered sections, field labels, and units. A source-only v1 sheet requires recreation in v2.
+- **System and template.** Bumped `schemaVersion` to 2. Their structure and rule content are otherwise the same. The Rogue Trader definitions moved to revision `1.0.1`, and v2 examples reference that exact pair.
+
+### v1 — Initial contract (retired before release)
+
+- **System and template.** Defined exact manifest and template references, field constraints, ordered sections, derived expressions, and modifier targets.
+- **Instance.** Defined character and monster source values, identity, and entry snapshots with explicit effects.
+- **Retirement.** Removed the v1 schemas, fixtures and Rogue Trader `1.0.0` definitions from the current tree. Validators require v2 and reject v1. The earlier files remain in Git history.
+
+Examples are separate from installed runtime content. Earlier phase specs record the paths used at the time.
 
 From the repository root, with Python 3.12 or later:
 
@@ -14,11 +37,11 @@ Keep the local virtual environment out of Git. No application build or Electron 
 
 Both character and monster instances reference the same `creature-core` template. The Ork owns its Unnatural Toughness trait entry and explicit multiplier. User-chosen careers and custom entries are descriptive unless an explicit supported effect is supplied.
 
-The harness checks all schemas/examples, exact reference relationships, field and section integrity, types/dependencies/cycles, input constraints and entry/effect compatibility. Arithmetic acceptance is tested against the production TypeScript engine; the Python verifier does not evaluate expressions or effects. It deliberately does not implement production diagnostics, filesystem resolution, transaction safety or UI preservation. Review those future obligations in contracts.md and ../specs/2026-10-28_data-contracts/validation.md.
+The harness checks the schemas and fixtures, exact reference relationships, field and section integrity, types and dependencies, input constraints and entry/effect compatibility. It verifies v2 sheets both independently and against exact definitions. The production TypeScript engine owns arithmetic acceptance. Later phases own runtime diagnostics, filesystem resolution, transaction safety and the UI.
 
-Template examples use `examples/templates/<template-id>/<template-version>/template.json`: the directory ID is descriptive and the definition filename is always `template.json`. The JSON `label` supplies the readable display name.
+Template examples use `examples/<bundle>/templates/<template-id>/<template-version>/template.json`. The directory ID is descriptive and the definition filename is always `template.json`. The JSON `label` supplies the readable display name.
 
-The revised v1 draft replaces the original unpublished two-template draft. All nine template attribute defaults are 0; the Explorator and Ork instances retain their own distinct worked values. Feature effects are instance-owned, role-independent, and limited to one multiply effect per declared target.
+All nine template attribute defaults are 0. The Explorator and Ork instances retain their own distinct worked values. Feature effects are instance-owned, role-independent, and limited to one multiply effect per declared target.
 
 ## Reading the verifier
 
@@ -44,7 +67,7 @@ Read ContractVerifier in validation.py for document checks and the focused test 
 
 Type hints describe validated shapes; JSON Schema and semantic checks still perform runtime validation. RawDocument is intentionally permissive only at JSON/schema boundaries and in tests constructing malformed documents. Domain expressions and validated document access use TypedDict, Literal and explicit parameter/return types.
 
-TypeScript calculation tests now own the independent zero-default, worked-number, boundary, numeric failure and instance-effect acceptance. They reuse the authored JSON inputs under examples/ and specify expected outputs directly; expectations are never generated by another evaluator.
+TypeScript calculation tests cover zero defaults, worked numbers, boundaries, numeric failures and instance effects. They use the authored JSON inputs under `examples/v2/` and specify expected outputs independently.
 
 To run a focused contract integrity check:
 
@@ -52,7 +75,7 @@ To run a focused contract integrity check:
 .\.venv-contracts\Scripts\python data_contracts\verify_contracts.py ContractTests.test_schema_and_fixture_links
 ```
 
-The Python suite has 10 named contract integrity test groups. Arithmetic-only selectors such as ContractTests.test_zero_defaults were retired in Phase 10. Use `npm run test:unit -- tests/unit/domain/calculation-engine.test.ts tests/unit/domain/calculate-with-entries.test.ts` for their production-engine acceptance coverage. Individual Python tables contain multiple named subcases; the summary's count describes groups, not rejected documents.
+Run `ContractTests.test_v2_sheet_snapshots` through the same entry point to check both stored sheets. The suite also covers malformed snapshots, v1 rejection by the v2 validator and exact-definition compatibility without evaluation. Use `npm run test:unit -- tests/unit/domain/calculation-engine.test.ts tests/unit/domain/calculate-with-entries.test.ts` for production-engine arithmetic acceptance. Individual Python test groups contain multiple named subcases.
 
 Rulebook citations in source/sourceRefs are self-contained. Optional metadata holds development-only sourceReview, requirementRefs and sourceRegisterRefs; the loader and calculations do not require those development documents. The provenance checks exercise both metadata-free and annotated data.
 

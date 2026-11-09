@@ -145,7 +145,7 @@ test('supports distinct exact versions and system namespaces without fallback', 
 test('validates every supplied document atomically with original diagnostic locations', () => {
   const data = bundle();
   const result = createInMemoryDefinitionCatalog(
-    [...data.manifests, { document: 'bad-system', value: { ...data.manifest, schemaVersion: 2 } }],
+    [...data.manifests, { document: 'bad-system', value: { ...data.manifest, schemaVersion: 3 } }],
     [...data.templates, { document: 'bad-template', value: { ...data.template, extra: true } }],
   );
   expect(result.success).toBe(false);

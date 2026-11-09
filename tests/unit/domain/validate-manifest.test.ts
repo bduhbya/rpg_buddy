@@ -86,7 +86,7 @@ test('checks required/unknown nested properties and escapes pointer segments', (
   }
 });
 
-test.each([2, '1', null])('rejects unsupported schema version %s', (schemaVersion) => {
+test.each([1, 3, '2', null])('rejects unsupported schema version %s', (schemaVersion) => {
   expect(
     validateSystemManifest({ ...loadFixtures().manifest, schemaVersion }, document),
   ).toMatchObject({

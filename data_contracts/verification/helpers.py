@@ -49,7 +49,8 @@ def safe_number(value: object) -> Number:
     """Match the contract's finite binary64 / safe-integer numeric boundary."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ContractViolation(f'Expected a number, received {value!r}')
-    require(math.isfinite(value), f'Number must be finite: {value!r}')
-    if float(value).is_integer():
-        require(abs(value) <= MAX_SAFE_INTEGER, f'Unsafe integer: {value!r}')
+    if isinstance(value, float):
+        require(math.isfinite(value), f'Number must be finite: {value!r}')
+    if isinstance(value, int) or value.is_integer():
+        require(abs(value) <= MAX_SAFE_INTEGER, 'Integer exceeds the safe binary64 range')
     return 0 if value == 0 else value

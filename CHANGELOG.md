@@ -2,6 +2,30 @@
 
 Entries summarize development changes by date and may be updated before committing.
 
+## 2026-11-09
+
+- Completed Phase 15. New character and monster instances carry final statistics and presentation data. Edits that change source values or effects update the sheet and its results atomically. Descriptive and equivalent edits preserve the recorded results.
+- Adopted a complete v2 bundle for system, template, and instance schemas. Updated the Rogue Trader seed definitions to `1.0.1` and retired the prerelease v1 schemas, fixtures, and `1.0.0` seed definitions. Added contract checks for empty value maps and trailing newlines in field IDs.
+
+## 2026-11-07
+
+- Added in-memory editing of source values, names, careers, and instance entries. Mechanical edits recompute derived values, and invalid edits preserve the prior state. Moved document models and structural validation into their domain folders and documented the editing API.
+- Planned self-contained instance sheets before filesystem work. The roadmap calls for loading recorded results and allowing read-only viewing when exact definitions are unavailable.
+
+## 2026-11-05
+
+- Added in-memory character and monster creation from exact system and template versions, with independent default values, IDs, and timestamps.
+- Grouped domain code by responsibility and documented how exact definition resolution, instance creation, and calculation fit together.
+
+## 2026-11-04
+
+- Implemented derived-statistic calculation in dependency order and applied explicit instance-entry effects after each affected base result. Moved arithmetic acceptance to TypeScript and retained Python checks for contract and fixture integrity.
+- Added Rogue Trader seed definitions for the approved core-statistics slice, including the shared creature template and versioned system manifest.
+
+## 2026-11-02
+
+- Added structural validation for system manifests and templates, plus an in-memory catalog that resolves exact definition versions. Invalid documents, conflicting definitions, and unavailable references return diagnostic codes and locations.
+
 ## 2026-10-30
 
 - Added a Windows GitHub Actions workflow for pull-request validation, covering formatting, TypeScript, unit tests, Python contract/type checks, packaging and both Electron test modes, with failed-test diagnostic artifacts. Enabled main-branch protection requiring passing GitHub Actions checks and an up-to-date PR, including administrators; added LF checkout attributes for consistent Windows formatting.

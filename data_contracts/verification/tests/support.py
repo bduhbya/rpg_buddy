@@ -46,9 +46,9 @@ class ContractTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.verifier = ContractVerifier()
-        examples = DATA_CONTRACTS / 'examples'
+        examples = DATA_CONTRACTS / 'examples/v2'
         cls.manifest = read_json(examples / 'system.json')
-        cls.template = read_json(examples / 'templates/creature-core/1.0.0/template.json')
+        cls.template = read_json(examples / 'templates/creature-core/1.0.1/template.json')
         cls.character = read_json(examples / 'explorator.instance.json')
         cls.monster = read_json(examples / 'ork-freebooter.instance.json')
 
@@ -61,4 +61,4 @@ class ContractTestCase(unittest.TestCase):
     def assert_invalid_instance(self, instance: RawDocument) -> None:
         # Programming errors such as KeyError are not successful rejections.
         with self.assertRaises((ContractViolation, ValidationError)):
-            self.verifier.validate_instance(instance, self.sheet, self.manifest)
+            self.verifier.validate_sheet(instance, self.sheet, self.manifest)

@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rogue-trader",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "label": "Rogue Trader \u2014 approved core statistics slice",
   "source": {
     "designation": "2009 core rulebook, RT01, Print ID 01",
@@ -11,7 +11,7 @@
   "templates": [
     {
       "id": "creature-core",
-      "version": "1.0.0"
+      "version": "1.0.1"
     }
   ]
 }
