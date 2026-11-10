@@ -204,7 +204,7 @@ Domain modules depend on other domain modules. Filesystem access, Electron, Reac
 | In-memory instance editing                                              | Publishes complete v2 sheets. Evaluates only when source values or effects change.   |
 | Complete saved-instance validation                                      | Implemented for standalone snapshots and exact-template compatibility.               |
 | Library discovery, selected-system loading and saved-instance loading   | Implemented in the main process.                                                     |
-| Safe instance saving                                                    | Planned for Phase 18.                                                                |
+| Safe instance saving                                                    | Planned for Phase 19.                                                                |
 | Reusable feature library and selection provenance                       | Requires its own future specification. Current entries are instance-owned snapshots. |
 
 The Python contract verifier retains schema and fixture integrity checks, including expression types/dependencies and snapshot compatibility. Phase 10 retired its arithmetic tracer and calculation API after migrating acceptance to the TypeScript tests; only TypeScript evaluates derived values.
