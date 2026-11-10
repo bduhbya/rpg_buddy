@@ -1,6 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, readFile, realpath } from 'node:fs/promises';
-import path from 'node:path';
 import { planCalculations } from '../domain/calculation/plan-calculations';
 import { checkDerivedExpressionTypes } from '../domain/definition-processing/validate-expression';
 import { createInMemoryDefinitionCatalog } from '../domain/definition-processing/in-memory-definition-catalog';
@@ -19,11 +17,11 @@ import type { DefinitionReference } from '../domain/definitions/common';
 import type { DiagnosticCode } from '../domain/definitions/diagnostics';
 import type { SystemManifest, Template } from '../domain/definitions/document-models';
 import { sameJsonContent } from '../domain/definitions/json-content';
-import { parseStrictJson } from '../domain/definitions/strict-json';
 import { DefinitionChecks } from '../domain/instances/structural-validation';
 import type { ValidationResult } from '../domain/instances/structural-validation';
 import { noopLogger, sanitizeError } from '../shared/logging-contract';
 import type { LogEvent, LogInput, LogLevel, Logger } from '../shared/logging-contract';
+import { readLibraryJson, resolveLibraryRoot } from './library-json';
 import {
   activeSystemManifestPath,
   archivedSystemManifestPath,
@@ -88,99 +86,9 @@ function failure(
   return { success: false, diagnostics: [{ document, code, message, pointer }] };
 }
 
-// Distinguish missing files from read failures without exposing absolute paths or OS error text.
-function fileFailure(document: string, error: unknown): LoadFailure {
-  if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
-    return failure(document, 'DEFINITION_NOT_FOUND', 'Supply the definition at its library path.');
-  }
-  return failure(
-    document,
-    'INVALID_VALUE',
-    'The definition file or its directory could not be read.',
-  );
-}
-
-// Resolve the chosen folder once so all definition reads in one load use the same base path.
-async function resolveLibraryRoot(root: string): Promise<ValidationResult<string>> {
-  if (!path.isAbsolute(root)) {
-    return failure('library selection', 'INVALID_VALUE', 'Choose an absolute library folder.');
-  }
-  try {
-    const resolved = await realpath(root);
-    if ((await lstat(resolved)).isDirectory()) return { success: true, value: resolved };
-  } catch {
-    // Treat missing and inaccessible folders the same in user-facing feedback.
-  }
-  return failure('library selection', 'INVALID_VALUE', 'Choose a readable library folder.');
-}
-
-// Read strict UTF-8 JSON from a canonical, library-relative definition path.
-async function readDefinition(root: string, document: string): Promise<ValidationResult<unknown>> {
-  let bytes: Uint8Array;
-  try {
-    // Check every component before reading so a directory junction cannot redirect the lookup.
-    const segments = document.split('/');
-    let file = root;
-    for (const [index, segment] of segments.entries()) {
-      file = path.join(file, segment);
-      const info = await lstat(file);
-      if (info.isSymbolicLink()) {
-        return failure(
-          document,
-          'INVALID_VALUE',
-          'Use ordinary files and directories inside the library.',
-        );
-      }
-      const expectedType = index === segments.length - 1 ? info.isFile() : info.isDirectory();
-      if (!expectedType) {
-        return failure(
-          document,
-          'INVALID_VALUE',
-          'The library path does not contain the expected file or directory.',
-        );
-      }
-    }
-    // Check the final resolved path against the selected root before opening the file.
-    const resolved = await realpath(file);
-    const relative = path.relative(root, resolved);
-    if (
-      !relative ||
-      relative === '..' ||
-      relative.startsWith('..' + path.sep) ||
-      path.isAbsolute(relative)
-    ) {
-      return failure(
-        document,
-        'INVALID_VALUE',
-        'The definition path must stay inside the library.',
-      );
-    }
-    // Windows can resolve an incorrectly cased path. Require its on-disk spelling.
-    if (relative.split(path.sep).join('/') !== document) {
-      return failure(
-        document,
-        'DEFINITION_NOT_FOUND',
-        'Supply the definition at the exact library path, including capitalization.',
-      );
-    }
-    bytes = await readFile(resolved);
-  } catch (error) {
-    return fileFailure(document, error);
-  }
-
-  let json: string;
-  try {
-    // Reject malformed UTF-8 before parsing can accept replacement characters as text.
-    json = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
-  } catch {
-    return failure(document, 'INVALID_JSON', 'Provide a valid UTF-8 JSON definition.');
-  }
-  return parseStrictJson(json, document);
-}
-
 // Validate the manifest's structure and match its identity to the system path and archive revision.
 async function readManifest(root: string, document: string, id: string, version?: string) {
-  const parsed = await readDefinition(root, document);
+  const parsed = await readLibraryJson(root, document, 'definition');
   if (!parsed.success) return parsed;
   const manifest = validateSystemManifest(parsed.value, document);
   if (!manifest.success) return manifest;
@@ -205,7 +113,7 @@ async function readTemplate(
   reference: DefinitionReference,
 ) {
   const document = templateDefinitionPath(system.id, reference);
-  const parsed = await readDefinition(root, document);
+  const parsed = await readLibraryJson(root, document, 'definition');
   if (!parsed.success) return parsed;
   const template = validateTemplate(parsed.value, document);
   if (!template.success) return template;

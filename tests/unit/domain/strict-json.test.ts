@@ -48,7 +48,7 @@ describe('strict JSON parsing', () => {
           document,
           pointer: '',
           code: 'INVALID_JSON',
-          message: 'Provide a valid UTF-8 JSON definition.',
+          message: 'Provide a file containing valid JSON.',
         },
       ],
     });

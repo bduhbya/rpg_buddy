@@ -1,5 +1,6 @@
 import type { Template } from '../definitions/document-models';
 import { checkExpression } from './validate-expression';
+import { checkSections } from '../instances/check-sections';
 import { childPointer, DefinitionChecks } from '../instances/structural-validation';
 import type { JsonObject, ValidationResult } from '../instances/structural-validation';
 
@@ -45,7 +46,7 @@ function checkField(
 }
 
 /**
- * Validate a parsed v2 template's structure, local invariants, and expression syntax.
+ * Validate a parsed template in the currently supported format for structure, local invariants, and expression syntax.
  * @param value Parsed template data to check.
  * @param document Logical document label attached to diagnostics.
  * @returns The validated input or diagnostics. Calculation separately checks expression semantics.
@@ -115,42 +116,7 @@ export function validateTemplate(value: unknown, document: string): ValidationRe
     });
   }
 
-  // Every declared field must appear exactly once across all sections.
-  const members = new Set<string>();
-  const sections = new Map<string, string>();
-  if (checks.array(value.sections, '/sections', 1)) {
-    value.sections.forEach((section, index) => {
-      const pointer = childPointer('/sections', index);
-      if (!checks.object(section, pointer, ['id', 'label', 'fields'])) return;
-      checks.slug(section.id, childPointer(pointer, 'id'));
-      registerId(section.id, childPointer(pointer, 'id'), sections);
-      checks.text(section.label, childPointer(pointer, 'label'));
-      const fieldsPointer = childPointer(pointer, 'fields');
-      if (!checks.array(section.fields, fieldsPointer, 1)) return;
-      section.fields.forEach((id, fieldIndex) => {
-        const memberPointer = childPointer(fieldsPointer, fieldIndex);
-        checks.fieldId(id, memberPointer);
-        if (typeof id !== 'string') return;
-        if (!fields.has(id))
-          checks.issue(
-            memberPointer,
-            'Section field must name a declared field.',
-            'INVALID_SECTION',
-          );
-        if (members.has(id))
-          checks.issue(
-            memberPointer,
-            'Field must occur in exactly one section, once.',
-            'INVALID_SECTION',
-          );
-        members.add(id);
-      });
-    });
-  }
-  for (const [id, pointer] of fields) {
-    if (!members.has(id))
-      checks.issue(pointer, 'Declared field is missing from sections.', 'INVALID_SECTION');
-  }
+  checkSections(value.sections, { kind: 'template', locations: fields }, checks);
   // Only derived fields can accept effects, and each target may be declared once.
   if (checks.array(value.modifierTargets, '/modifierTargets')) {
     const targets = new Set<string>();
