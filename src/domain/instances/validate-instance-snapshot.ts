@@ -3,20 +3,11 @@ import { INSTANCE_ROLES } from '../definitions/document-models';
 import type { Instance } from '../definitions/document-models';
 import { DOCUMENT_SCHEMA_VERSION } from '../definitions/schema-version';
 import { isEarlierUtcTimestamp, isUtcTimestamp } from '../definitions/utc-timestamp';
-import type { DiagnosticCode } from '../definitions/diagnostics';
+import { createDomainWorkflowLog } from '../workflow-log';
+import type { DomainLogging } from '../workflow-log';
 import { checkSections } from './check-sections';
 import { childPointer, DefinitionChecks } from './structural-validation';
 import type { JsonObject, ValidationResult } from './structural-validation';
-
-type SnapshotLogEntry = { operationId: string } & (
-  | { event: 'instance.snapshot.validated'; level: 'info' }
-  | { event: 'instance.snapshot.invalid'; level: 'warn'; reason: DiagnosticCode }
-);
-
-interface SnapshotLogging {
-  logger: { record(input: SnapshotLogEntry): void };
-  operationId: string;
-}
 
 // Narrow a dynamic field map and check the syntax of each own key.
 function readFieldMap(value: unknown, pointer: string, checks: DefinitionChecks, minimum = 0) {
@@ -103,32 +94,11 @@ function checkTimestamps(sheet: JsonObject, checks: DefinitionChecks): void {
 export function validateInstanceSnapshot(
   value: unknown,
   document: string,
-  logging?: SnapshotLogging,
+  logging?: DomainLogging,
 ): ValidationResult<Instance> {
   const checks = new DefinitionChecks(document);
 
-  // Record one outcome even when a version or shape check ends validation early.
-  function finish(): ValidationResult<Instance> {
-    const result = checks.result<Instance>(value);
-    if (logging) {
-      try {
-        const { logger, operationId } = logging;
-        if (result.success) {
-          logger.record({ event: 'instance.snapshot.validated', level: 'info', operationId });
-        } else {
-          logger.record({
-            event: 'instance.snapshot.invalid',
-            level: 'warn',
-            operationId,
-            reason: result.diagnostics[0].code,
-          });
-        }
-      } catch {
-        // Logging is best effort and must preserve the validation result.
-      }
-    }
-    return result;
-  }
+  const log = createDomainWorkflowLog(logging, 'instance.snapshot');
 
   if (value !== null && typeof value === 'object' && Object.hasOwn(value, 'schemaVersion')) {
     const { schemaVersion } = value as JsonObject;
@@ -140,7 +110,7 @@ export function validateInstanceSnapshot(
           : `This sheet uses an unsupported schema version. Supply a version ${DOCUMENT_SCHEMA_VERSION} sheet.`,
         'UNSUPPORTED_SCHEMA_VERSION',
       );
-      return finish();
+      return log.result('schema.check', checks.result<Instance>(value));
     }
   }
   if (
@@ -165,7 +135,7 @@ export function validateInstanceSnapshot(
       ['career', 'metadata'],
     )
   )
-    return finish();
+    return log.result('shape.check', checks.result<Instance>(value));
 
   checks.slug(value.id, '/id');
   checks.slug(value.entityType, '/entityType');
@@ -187,5 +157,5 @@ export function validateInstanceSnapshot(
     'a stored derived field',
     checks,
   );
-  return finish();
+  return log.result('content.validate', checks.result<Instance>(value));
 }

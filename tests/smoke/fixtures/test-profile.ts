@@ -58,7 +58,11 @@ export const test = base.extend<{ profiles: ProfileFactory }>({
                     return readFileSync(startup, 'utf8')
                       .split('\n')
                       .filter(Boolean)
-                      .some((line) => JSON.parse(line).event === 'application.started');
+                      .map((line) => JSON.parse(line))
+                      .some(
+                        (row) =>
+                          row.event === 'application.lifecycle' && row.step === 'process.start',
+                      );
                   } catch {
                     return false;
                   }

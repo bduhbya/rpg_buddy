@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import type { Instance, Template } from '../../../src/domain/definitions/document-models';
 import { noopLogger } from '../../../src/shared/logging-contract';
+import type { LogInput } from '../../../src/shared/logging-contract';
 import { loadSavedInstance } from '../../../src/main/instance-loader';
 import { LogService } from '../../../src/main/logging';
 
@@ -219,12 +220,19 @@ test('writes correlated checkpoints and outcomes at the default info threshold',
       node: 'test',
     },
   });
+  const attempted: LogInput[] = [];
+  const sink = {
+    record(input: LogInput) {
+      attempted.push(input);
+      logger.record(input);
+    },
+  };
   try {
-    await loadSavedInstance(root, address, logger);
+    await loadSavedInstance(root, address, sink);
     await rm(path.join(root, manifest));
-    await loadSavedInstance(root, address, logger);
+    await loadSavedInstance(root, address, sink);
     await put(document, '{"schemaVersion":1}');
-    await loadSavedInstance(root, address, logger);
+    await loadSavedInstance(root, address, sink);
   } finally {
     await logger.close();
   }
@@ -233,24 +241,56 @@ test('writes correlated checkpoints and outcomes at the default info threshold',
     .trim()
     .split('\n')
     .map((line) => JSON.parse(line));
-  expect(records.map(({ event, level, reason }) => [event, level, reason])).toEqual([
-    ['instance.load.started', 'info', undefined],
-    ['instance.snapshot.validated', 'info', undefined],
-    ['instance.load.opened', 'info', undefined],
-    ['instance.load.started', 'info', undefined],
-    ['instance.snapshot.validated', 'info', undefined],
-    ['instance.load.readonly', 'warn', 'DEFINITION_NOT_FOUND'],
-    ['instance.load.started', 'info', undefined],
-    ['instance.snapshot.invalid', 'warn', 'UNSUPPORTED_SCHEMA_VERSION'],
+  expect(
+    records.map(({ event, step, outcome, level, reason }) => [event, step, outcome, level, reason]),
+  ).toEqual([
+    ['instance.load', 'sheet.open', 'started', 'info', undefined],
+    ['instance.load', 'snapshot.validate', 'succeeded', 'info', undefined],
+    ['instance.load', 'sheet.open', 'succeeded', 'info', undefined],
+    ['instance.load', 'sheet.open', 'started', 'info', undefined],
+    ['instance.load', 'snapshot.validate', 'succeeded', 'info', undefined],
+    ['instance.load', 'definitions.resolve', 'degraded', 'warn', 'DEFINITION_NOT_FOUND'],
+    ['instance.load', 'sheet.open', 'started', 'info', undefined],
+    ['instance.load', 'snapshot.validate', 'rejected', 'warn', 'UNSUPPORTED_SCHEMA_VERSION'],
   ]);
   const ids = records.map(({ operationId }) => operationId);
   expect(ids).toEqual([ids[0], ids[0], ids[0], ids[3], ids[3], ids[3], ids[6], ids[6]]);
   expect(new Set(ids).size).toBe(3);
+  expect(attempted.filter(({ event }) => event === 'library.definitions.exact')).toEqual([
+    {
+      event: 'library.definitions.exact',
+      step: 'definitions.load',
+      outcome: 'started',
+      level: 'debug',
+      operationId: ids[0],
+    },
+    {
+      event: 'library.definitions.exact',
+      step: 'archive.read',
+      outcome: 'succeeded',
+      level: 'debug',
+      operationId: ids[0],
+    },
+    {
+      event: 'library.definitions.exact',
+      step: 'template.read',
+      outcome: 'succeeded',
+      level: 'debug',
+      operationId: ids[0],
+    },
+    {
+      event: 'library.definitions.exact',
+      step: 'definitions.load',
+      outcome: 'started',
+      level: 'debug',
+      operationId: ids[3],
+    },
+  ]);
   for (const privateValue of [document, systemId, sheet.id, sheet.displayName])
     expect(log).not.toContain(privateValue);
 });
 
-test('a failing logger preserves successful and rejected load results', async () => {
+test('a failing logger preserves editable, read-only, and rejected load results', async () => {
   const { address, document } = await saveExample('explorator');
   const logger = {
     // Simulate an unavailable log sink.
@@ -262,6 +302,10 @@ test('a failing logger preserves successful and rejected load results', async ()
     success: true,
     value: { mode: 'editable' },
   });
+  await rm(path.join(root, manifest));
+  expect(await loadSavedInstance(root, address, logger)).toEqual(
+    await loadSavedInstance(root, address, noopLogger),
+  );
   await put(document, '{"schemaVersion":1}');
   expect(await loadSavedInstance(root, address, logger)).toMatchObject({
     success: false,

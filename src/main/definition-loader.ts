@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { planCalculations } from '../domain/calculation/plan-calculations';
 import { checkDerivedExpressionTypes } from '../domain/definition-processing/validate-expression';
 import { createInMemoryDefinitionCatalog } from '../domain/definition-processing/in-memory-definition-catalog';
@@ -19,14 +18,15 @@ import type { SystemManifest, Template } from '../domain/definitions/document-mo
 import { sameJsonContent } from '../domain/definitions/json-content';
 import { DefinitionChecks } from '../domain/instances/structural-validation';
 import type { ValidationResult } from '../domain/instances/structural-validation';
-import { noopLogger, sanitizeError } from '../shared/logging-contract';
-import type { LogEvent, LogInput, LogLevel, Logger } from '../shared/logging-contract';
+import { noopLogger } from '../shared/logging-contract';
+import type { Logger } from '../shared/logging-contract';
 import { readLibraryJson, resolveLibraryRoot } from './library-json';
 import {
   activeSystemManifestPath,
   archivedSystemManifestPath,
   templateDefinitionPath,
 } from './library-paths';
+import { createMainWorkflowLog } from './workflow-log';
 
 export interface LoadedSystem {
   manifest: SystemManifest;
@@ -34,47 +34,6 @@ export interface LoadedSystem {
 }
 
 type LoadFailure = Extract<ValidationResult<never>, { success: false }>;
-
-// Write best-effort product diagnostics without changing the loader's result.
-function recordLoadEvent(logger: Logger, input: LogInput): void {
-  try {
-    logger.record(input);
-  } catch {
-    // A logging failure must never interrupt definition loading.
-  }
-}
-
-// Set up a best-effort logger with one operation ID. Setup writes no events.
-// The failure event name is used only when a check rejects the load or an exception occurs.
-function createDefinitionLoadLog(logger: Logger, failedEvent: LogEvent) {
-  const operationId = randomUUID();
-  return {
-    // Record a milestone in this load. Progress events default to debug.
-    record(event: LogEvent, level: LogLevel = 'debug'): void {
-      recordLoadEvent(logger, { event, level, operationId });
-    },
-    // Record the diagnostic code as the reason and return the original diagnostic to the caller.
-    reject(result: LoadFailure): LoadFailure {
-      recordLoadEvent(logger, {
-        event: failedEvent,
-        level: 'warn',
-        operationId,
-        reason: result.diagnostics[0].code,
-      });
-      return result;
-    },
-    // Record an unexpected exception with sanitized details before it propagates.
-    unexpected(error: unknown): void {
-      recordLoadEvent(logger, {
-        event: failedEvent,
-        level: 'error',
-        operationId,
-        reason: 'UNAVAILABLE',
-        error: sanitizeError(error),
-      });
-    },
-  };
-}
 
 // Wrap one loader diagnostic in the same result format as domain validation.
 function failure(
@@ -152,23 +111,29 @@ async function readTemplate(
  * @param libraryRootPath Absolute filesystem path to the selected library folder.
  * @param systemDirectoryName Candidate system ID from a directory entry, available before any definition files are read.
  * @param logger Application logger. Omit to skip recording product logs.
+ * @param parentOperationId ID of the enclosing operation when it owns the final outcome.
  * @returns The active manifest and complete catalog, or diagnostics without a partial catalog.
  */
 export async function loadActiveSystem(
   libraryRootPath: string,
   systemDirectoryName: unknown,
   logger: Logger = noopLogger,
+  parentOperationId?: string,
 ): Promise<ValidationResult<LoadedSystem>> {
-  // Configure the failure event for this load. The first event written is started.
-  const log = createDefinitionLoadLog(logger, 'library.definitions.active.failed');
-  log.record('library.definitions.active.started');
+  const log = createMainWorkflowLog(logger, 'library.definitions.active', {
+    operationId: parentOperationId,
+    checkpointsOnly: parentOperationId !== undefined,
+  });
+  log.record({ step: 'definitions.load', outcome: 'started', level: 'debug' });
   try {
     const checks = new DefinitionChecks('system selection');
     checks.slug(systemDirectoryName, '/systemId');
     const validatedDirectoryName = checks.result<string>(systemDirectoryName);
-    if (!validatedDirectoryName.success) return log.reject(validatedDirectoryName);
+    if (!validatedDirectoryName.success)
+      return log.diagnosticFailure(validatedDirectoryName, 'request.validate');
     const resolvedLibraryRoot = await resolveLibraryRoot(libraryRootPath);
-    if (!resolvedLibraryRoot.success) return log.reject(resolvedLibraryRoot);
+    if (!resolvedLibraryRoot.success)
+      return log.diagnosticFailure(resolvedLibraryRoot, 'root.resolve');
 
     // Use the directory name to locate system.json, then verify the manifest declares that ID.
     const activeManifestPath = activeSystemManifestPath(validatedDirectoryName.value);
@@ -177,8 +142,8 @@ export async function loadActiveSystem(
       activeManifestPath,
       validatedDirectoryName.value,
     );
-    if (!active.success) return log.reject(active);
-    log.record('library.definitions.active.manifest.validated');
+    if (!active.success) return log.diagnosticFailure(active, 'manifest.read');
+    log.record({ step: 'manifest.read', outcome: 'succeeded', level: 'debug' });
 
     // The active manifest supplies the revision and template references for the remaining reads.
     const activeManifest = active.value;
@@ -189,45 +154,49 @@ export async function loadActiveSystem(
       activeManifest.id,
       activeManifest.version,
     );
-    if (!archive.success) return log.reject(archive);
+    if (!archive.success) return log.diagnosticFailure(archive, 'archive.read');
     if (!sameJsonContent(active.value, archive.value)) {
-      return log.reject(
+      return log.diagnosticFailure(
         failure(
           archivedManifestPath,
           'DEFINITION_CONFLICT',
           'The active manifest and its exact archive must have identical contents.',
         ),
+        'archive.compare',
       );
     }
 
-    log.record('library.definitions.active.archive.validated');
+    log.record({ step: 'archive.read', outcome: 'succeeded', level: 'debug' });
 
     // Follow only the manifest's exact template references. Other revisions stay on disk.
     const templates = [];
     for (const reference of activeManifest.templates) {
       const template = await readTemplate(resolvedLibraryRoot.value, activeManifest, reference);
-      if (!template.success) return log.reject(template);
+      if (!template.success) return log.diagnosticFailure(template, 'template.read');
       templates.push(template.value);
     }
-    log.record('library.definitions.active.templates.validated');
+    log.record({ step: 'templates.read', outcome: 'succeeded', level: 'debug' });
     // Publish the catalog only after every declared pair passes cross-document resolution.
     const catalog = createInMemoryDefinitionCatalog(
       [{ document: archivedManifestPath, value: archive.value }],
       templates,
     );
-    if (!catalog.success) return log.reject(catalog);
+    if (!catalog.success) return log.diagnosticFailure(catalog, 'catalog.build');
     for (const template of activeManifest.templates) {
       const resolved = resolveDefinitions(
         catalog.value,
         { system: { id: activeManifest.id, version: activeManifest.version }, template },
         activeManifestPath,
       );
-      if (!resolved.success) return log.reject(resolved);
+      if (!resolved.success) return log.diagnosticFailure(resolved, 'definitions.resolve');
     }
-    log.record('library.definitions.active.completed', 'info');
+    log.outcome({ step: 'definitions.load', outcome: 'succeeded', level: 'info' });
     return { success: true, value: { manifest: activeManifest, catalog: catalog.value } };
   } catch (error) {
-    log.unexpected(error);
+    log.outcome(
+      { step: 'definitions.load', outcome: 'failed', level: 'error', reason: 'UNAVAILABLE' },
+      error,
+    );
     throw error;
   }
 }
@@ -239,16 +208,20 @@ export async function loadActiveSystem(
  * @param libraryRootPath Absolute filesystem path to the selected library folder.
  * @param definitionReferences Exact system and template IDs and versions supplied by the caller, such as from a saved sheet. The loader validates them before building filesystem paths.
  * @param logger Application logger. Omit to skip recording product logs.
+ * @param parentOperationId ID of the enclosing operation when it owns the final outcome.
  * @returns The resolved definitions or diagnostics. No catalog is retained by the loader.
  */
 export async function loadExactDefinitions(
   libraryRootPath: string,
   definitionReferences: unknown,
   logger: Logger = noopLogger,
+  parentOperationId?: string,
 ): Promise<ValidationResult<ResolvedDefinitions>> {
-  // Configure the failure event for this load. The first event written is started.
-  const log = createDefinitionLoadLog(logger, 'library.definitions.exact.failed');
-  log.record('library.definitions.exact.started');
+  const log = createMainWorkflowLog(logger, 'library.definitions.exact', {
+    operationId: parentOperationId,
+    checkpointsOnly: parentOperationId !== undefined,
+  });
+  log.record({ step: 'definitions.load', outcome: 'started', level: 'debug' });
   try {
     const checks = new DefinitionChecks('definition request');
     if (checks.object(definitionReferences, '', ['system', 'template'])) {
@@ -256,9 +229,11 @@ export async function loadExactDefinitions(
       checks.reference(definitionReferences.template, '/template');
     }
     const validatedReferences = checks.result<DefinitionRequest>(definitionReferences);
-    if (!validatedReferences.success) return log.reject(validatedReferences);
+    if (!validatedReferences.success)
+      return log.diagnosticFailure(validatedReferences, 'request.validate');
     const resolvedLibraryRoot = await resolveLibraryRoot(libraryRootPath);
-    if (!resolvedLibraryRoot.success) return log.reject(resolvedLibraryRoot);
+    if (!resolvedLibraryRoot.success)
+      return log.diagnosticFailure(resolvedLibraryRoot, 'root.resolve');
     const { system: systemReference, template: templateReference } = validatedReferences.value;
     const archivedManifestPath = archivedSystemManifestPath(systemReference);
     const manifest = await readManifest(
@@ -267,21 +242,22 @@ export async function loadExactDefinitions(
       systemReference.id,
       systemReference.version,
     );
-    if (!manifest.success) return log.reject(manifest);
-    log.record('library.definitions.exact.archive.validated');
+    if (!manifest.success) return log.diagnosticFailure(manifest, 'archive.read');
+    log.record({ step: 'archive.read', outcome: 'succeeded', level: 'debug' });
     // Verify membership before opening the requested template path.
     if (
       !manifest.value.templates.some(
         (entry) => entry.id === templateReference.id && entry.version === templateReference.version,
       )
     ) {
-      return log.reject(
+      return log.diagnosticFailure(
         failure(
           archivedManifestPath,
           'IDENTITY_MISMATCH',
           'The requested exact template must be listed in the archived manifest.',
           '/templates',
         ),
+        'template.check',
       );
     }
     const loaded = await readTemplate(
@@ -289,23 +265,26 @@ export async function loadExactDefinitions(
       systemReference,
       templateReference,
     );
-    if (!loaded.success) return log.reject(loaded);
-    log.record('library.definitions.exact.template.validated');
+    if (!loaded.success) return log.diagnosticFailure(loaded, 'template.read');
+    log.record({ step: 'template.read', outcome: 'succeeded', level: 'debug' });
     const catalog = createInMemoryDefinitionCatalog(
       [{ document: archivedManifestPath, value: manifest.value }],
       [loaded.value],
     );
-    if (!catalog.success) return log.reject(catalog);
+    if (!catalog.success) return log.diagnosticFailure(catalog, 'catalog.build');
     const resolved = resolveDefinitions(
       catalog.value,
       validatedReferences.value,
       'definition request',
     );
-    if (!resolved.success) return log.reject(resolved);
-    log.record('library.definitions.exact.completed', 'info');
+    if (!resolved.success) return log.diagnosticFailure(resolved, 'definitions.resolve');
+    log.outcome({ step: 'definitions.load', outcome: 'succeeded', level: 'info' });
     return resolved;
   } catch (error) {
-    log.unexpected(error);
+    log.outcome(
+      { step: 'definitions.load', outcome: 'failed', level: 'error', reason: 'UNAVAILABLE' },
+      error,
+    );
     throw error;
   }
 }

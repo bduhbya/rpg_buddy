@@ -19,10 +19,15 @@ export type ApplicationInfoResult =
   | { ok: true; info: ApplicationInfo }
   | { ok: false; code: 'INVALID_REQUEST' | 'FORBIDDEN' | 'UNAVAILABLE' };
 
+interface BridgeRequestOptions {
+  /** Reject with a sanitized transport error so the workflow can report it. */
+  reportTransportFailure?: boolean;
+}
+
 export interface ApplicationBridge {
-  getApplicationInfo(): Promise<ApplicationInfoResult>;
+  getApplicationInfo(options?: BridgeRequestOptions): Promise<ApplicationInfoResult>;
   recordLog(input: LogInput): Promise<LogResult>;
-  librarySelection(request: LibraryRequest): Promise<LibraryResult>;
+  librarySelection(request: LibraryRequest, options?: BridgeRequestOptions): Promise<LibraryResult>;
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -54,15 +59,24 @@ export function isApplicationInfoResult(value: unknown): value is ApplicationInf
   );
 }
 
+/**
+ * Request and validate the application information reply.
+ * @param invoke IPC transport provided by the preload.
+ * @param onTransportFailure Optional callback after a rejected invoke or invalid reply.
+ * @returns The checked reply or a transport error if the callback does not throw.
+ */
 export async function requestApplicationInfo(
   invoke: (channel: string, request: ApplicationInfoRequest) => Promise<unknown>,
+  onTransportFailure?: () => void,
 ): Promise<ApplicationInfoResult> {
   try {
     const result = await invoke(APPLICATION_INFO_CHANNEL, {
       apiVersion: APPLICATION_INFO_API_VERSION,
     });
-    return isApplicationInfoResult(result) ? result : { ok: false, code: 'UNAVAILABLE' };
+    if (isApplicationInfoResult(result)) return result;
   } catch {
-    return { ok: false, code: 'UNAVAILABLE' };
+    // A rejected invoke and an invalid reply are both transport failures.
   }
+  onTransportFailure?.();
+  return { ok: false, code: 'UNAVAILABLE' };
 }

@@ -54,11 +54,20 @@ export class LogService implements Logger {
     this.debug = enabled;
     const operationId = randomUUID();
     this.record({
-      event: enabled ? 'diagnostic.debug.enabled' : 'diagnostic.debug.disabled',
+      event: 'diagnostic.debug',
+      step: 'setting.change',
+      outcome: enabled ? 'enabled' : 'disabled',
       level: 'info',
       operationId,
     });
-    if (enabled) this.record({ event: 'application.debug', level: 'debug', operationId });
+    if (enabled)
+      this.record({
+        event: 'diagnostic.debug',
+        step: 'trace.emit',
+        outcome: 'succeeded',
+        level: 'debug',
+        operationId,
+      });
   }
   record(input: LogInput): void {
     this.accept(input, 'main', process.pid);
@@ -77,6 +86,9 @@ export class LogService implements Logger {
         ...this.options.metadata,
         event: input.event,
         level: input.level,
+        ...(input.step !== undefined && input.outcome !== undefined
+          ? { step: input.step, outcome: input.outcome }
+          : {}),
         ...(input.reason ? { reason: input.reason } : {}),
         ...(input.error ? { stackFormat: 'compiled-js' } : {}),
         ...(input.error ? { error: { name: input.error.name, stack: input.error.stack } } : {}),
@@ -91,8 +103,10 @@ export class LogService implements Logger {
       }
       if (this.options.development) {
         try {
+          const workflow =
+            record.step && record.outcome ? ` step=${record.step} outcome=${record.outcome}` : '';
           (this.options.consoleWrite ?? console.log)(
-            `${record.timestamp} ${record.level.toUpperCase()} ${record.source} ${record.event} build=${record.buildId} session=${record.sessionId} operation=${record.operationId}${record.reason ? ` reason=${record.reason}` : ''}${record.error ? ` stackFormat=compiled-js ${record.error.name} ${record.error.stack}` : ''}`,
+            `${record.timestamp} ${record.level.toUpperCase()} ${record.source} ${record.event}${workflow} build=${record.buildId} session=${record.sessionId} operation=${record.operationId}${record.reason ? ` reason=${record.reason}` : ''}${record.error ? ` stackFormat=compiled-js ${record.error.name} ${record.error.stack}` : ''}`,
           );
         } catch {
           /* console failure must not affect storage */

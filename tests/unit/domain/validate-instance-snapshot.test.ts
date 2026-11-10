@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import type { Instance } from '../../../src/domain/definitions/document-models';
 import { validateInstanceSnapshot } from '../../../src/domain/instances/validate-instance-snapshot';
 
@@ -261,5 +261,25 @@ test('preserves saved-sheet section duplicate and missing-field diagnostics', ()
         message: 'Stored field "weaponSkill" is missing from the sections.',
       },
     ],
+  });
+});
+
+test('reports an early snapshot rejection and preserves its located diagnostic', () => {
+  const record = vi.fn(() => {
+    throw new Error('sink unavailable');
+  });
+  const logging = { logger: { record }, operationId: '00000000-0000-4000-8000-000000000003' };
+  const input = { schemaVersion: 1 };
+
+  expect(validateInstanceSnapshot(input, document, logging)).toEqual(
+    validateInstanceSnapshot(input, document),
+  );
+  expect(record).toHaveBeenCalledExactlyOnceWith({
+    event: 'instance.snapshot',
+    step: 'schema.check',
+    outcome: 'rejected',
+    level: 'warn',
+    operationId: logging.operationId,
+    reason: 'UNSUPPORTED_SCHEMA_VERSION',
   });
 });

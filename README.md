@@ -75,3 +75,5 @@ The merge policy requires a passing **Windows validation** check and a branch up
 The application writes local rotating logs to `%APPDATA%\RPG Buddy\logs` on Windows. No logs are uploaded automatically. Use **Diagnostics > Enable debug tracing** for additional logging during the current launch, or set `RPG_BUDDY_LOG_LEVEL=debug` before starting the application.
 
 The **Simulate diagnostic failure** button records a correlated diagnostic without crashing the app. For support, close all application windows, copy the log files, and include the operation ID and a description of the problem. Review logs before sharing them.
+
+For workflow ownership, wrappers, and event conventions, see the [diagnostic logging guide](specs/diagnostic-logging.md).

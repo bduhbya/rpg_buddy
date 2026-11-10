@@ -6,6 +6,8 @@ import { NONBLANK_TEXT_PATTERN } from '../definitions/definition-patterns';
 import type { Entry, Instance } from '../definitions/document-models';
 import { sameJsonContent } from '../definitions/json-content';
 import { isEarlierUtcTimestamp, isUtcTimestamp } from '../definitions/utc-timestamp';
+import { createDomainWorkflowLog } from '../workflow-log';
+import type { DomainLogging } from '../workflow-log';
 import { DefinitionChecks } from './structural-validation';
 import type { ValidationResult } from './structural-validation';
 
@@ -166,8 +168,8 @@ function applyOperation(
  * @param current Previously valid in-memory instance to edit.
  * @param clock Supplies a UTC modification timestamp after validation and any required calculation.
  * Equivalent edits keep the previous timestamp and skip the clock.
- * @param diagnosticSource Label for edit diagnostics. Calculation uses separate logical documents
- * named by appending " values" and " entries" to this label.
+ * @param diagnosticSource Label for edit diagnostics, optionally paired with logging context.
+ * Calculation uses separate logical documents named by appending " values" and " entries" to this label.
  * @param operation Operation name followed by its primitive arguments. Use null to clear career,
  * JSON text for add or replace, and a local entry ID for remove. Replace uses the ID in the JSON.
  * @returns An independent complete sheet, or diagnostics without partial results.
@@ -176,28 +178,33 @@ export function editInstance(
   catalog: InMemoryDefinitionCatalog,
   current: Instance,
   clock: { now(): string },
-  diagnosticSource: string,
+  diagnosticSource: string | { document: string; logging: DomainLogging },
   ...operation: InstanceEditOperation
 ): ValidationResult<Instance> {
-  const edited = applyOperation(structuredClone(current), operation, diagnosticSource);
-  if (!edited.success) return edited;
+  const { document, logging } =
+    typeof diagnosticSource === 'string'
+      ? { document: diagnosticSource, logging: undefined }
+      : diagnosticSource;
+  const log = createDomainWorkflowLog(logging, 'instance.edit');
+  const edited = applyOperation(structuredClone(current), operation, document);
+  if (!edited.success) return log.result('change.apply', edited);
   const candidate = edited.value;
 
   const resolved = resolveDefinitions(
     catalog,
     { system: candidate.system, template: candidate.template },
-    diagnosticSource,
+    document,
   );
-  if (!resolved.success) return resolved;
+  if (!resolved.success) return log.result('definitions.resolve', resolved);
 
   const template = resolved.value.template;
-  const entries = { document: `${diagnosticSource} entries`, value: candidate.entries };
+  const entries = { document: `${document} entries`, value: candidate.entries };
   const valuesChanged = !sameJsonContent(candidate.values, current.values);
   const entriesChanged = !sameJsonContent(candidate.entries, current.entries);
   let effectsChanged = false;
   if (entriesChanged) {
     const validated = validateEntryEffects(template.value, entries);
-    if (!validated.success) return validated;
+    if (!validated.success) return log.result('entries.validate', validated);
 
     // Entry order and descriptive data do not affect the validated effect set.
     const previousEffects = current.entries.flatMap((entry) => entry.effects);
@@ -211,12 +218,12 @@ export function editInstance(
     const calculated = calculateWithEntries(
       template,
       {
-        document: `${diagnosticSource} values`,
+        document: `${document} values`,
         value: candidate.values,
       },
       entries,
     );
-    if (!calculated.success) return calculated;
+    if (!calculated.success) return log.result('values.recalculate', calculated, 'failed');
     candidate.derived = calculated.value;
   }
   const changed =
@@ -226,13 +233,13 @@ export function editInstance(
     valuesChanged;
 
   if (changed) {
-    const checks = new DefinitionChecks(diagnosticSource);
+    const checks = new DefinitionChecks(document);
     let timestamp: unknown;
     try {
       timestamp = clock.now();
     } catch {
       checks.issue('/modifiedAt', 'The UTC time provider failed.', 'INVALID_VALUE');
-      return checks.result(undefined);
+      return log.result('timestamp.read', checks.result<Instance>(undefined), 'failed', 'error');
     }
     if (!isUtcTimestamp(timestamp) || isEarlierUtcTimestamp(timestamp, current.modifiedAt)) {
       checks.issue(
@@ -240,10 +247,14 @@ export function editInstance(
         'Expected a real UTC timestamp at or after the current modification time.',
         'INVALID_VALUE',
       );
-      return checks.result(undefined);
+      return log.result('timestamp.validate', checks.result<Instance>(undefined));
     }
     candidate.modifiedAt = timestamp;
   }
 
-  return { success: true, value: candidate as Instance };
+  return log.result(
+    'sheet.update',
+    { success: true, value: candidate as Instance },
+    changed ? 'succeeded' : 'unchanged',
+  );
 }

@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { APPLICATION_INFO_CHANNEL } from '../shared/application-info';
 import { createApplicationInfoHandler } from './application-info';
 import path from 'node:path';
-import { LOG_CHANNEL, sanitizeError } from '../shared/logging-contract';
+import { LOG_CHANNEL } from '../shared/logging-contract';
 import type { LogReason } from '../shared/logging-contract';
 import { LogService } from './logging';
 import { createLogHandler, operationId } from './logging-ipc';
@@ -10,6 +10,7 @@ import { installDiagnosticsMenu } from './menu';
 import { LIBRARY_SELECTION_CHANNEL } from '../shared/library-selection';
 import { createLibraryHandler } from './library-ipc';
 import { LibrarySelection } from './library-selection';
+import { createMainWorkflowLog } from './workflow-log';
 
 const logging = new LogService({
   directory: path.join(app.getPath('userData'), 'logs'),
@@ -25,17 +26,14 @@ const logging = new LogService({
 });
 let terminating = false;
 let fatalInProgress = false;
-function fatal(error: unknown, reason: LogReason): void {
+// Record the fatal outcome and drain diagnostics before exiting nonzero.
+function fatal(error: unknown, reason: LogReason, startupOperationId?: string): void {
   if (fatalInProgress) return;
   fatalInProgress = true;
   terminating = true;
-  logging.record({
-    event: 'application.fatal',
-    reason,
-    level: 'fatal',
-    operationId: operationId(),
-    error: sanitizeError(error),
-  });
+  createMainWorkflowLog(logging, 'application.lifecycle', {
+    operationId: startupOperationId,
+  }).record({ step: 'process.exit', outcome: 'failed', reason, level: 'fatal' }, error);
   const deadline = setTimeout(() => app.exit(1), 2500);
   void logging.close().finally(() => {
     clearTimeout(deadline);
@@ -65,14 +63,27 @@ ipcMain.handle(
       });
       return result.canceled ? undefined : result.filePaths[0];
     },
+    logging,
   ),
 );
 ipcMain.handle(
   LOG_CHANNEL,
   createLogHandler(() => mainWindow?.webContents, trustedDocument, logging),
 );
-logging.record({ event: 'application.started', level: 'info', operationId: operationId() });
-logging.record({ event: 'application.debug', level: 'debug', operationId: operationId() });
+logging.record({
+  event: 'application.lifecycle',
+  step: 'process.start',
+  outcome: 'started',
+  level: 'info',
+  operationId: operationId(),
+});
+logging.record({
+  event: 'diagnostic.debug',
+  step: 'trace.emit',
+  outcome: 'succeeded',
+  level: 'debug',
+  operationId: operationId(),
+});
 
 ipcMain.handle(
   APPLICATION_INFO_CHANNEL,
@@ -110,7 +121,14 @@ async function createWindow(): Promise<void> {
 
   mainWindow = window;
   window.webContents.on('render-process-gone', () => {
-    logging.record({ event: 'renderer.terminated', level: 'error', operationId: operationId() });
+    logging.record({
+      event: 'renderer.lifecycle',
+      step: 'process.exit',
+      outcome: 'terminated',
+      reason: 'RENDERER_PROCESS_TERMINATED',
+      level: 'error',
+      operationId: operationId(),
+    });
   });
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = undefined;
@@ -131,19 +149,18 @@ async function createWindow(): Promise<void> {
   await window.loadURL(trustedDocument);
 }
 
+// Correlate the failed startup checkpoint with the fatal termination it triggers.
 function reportStartupFailure(error: unknown): void {
-  logging.record({
-    event: 'application.startup.failed',
-    reason: 'WINDOW_STARTUP_FAILED',
-    level: 'error',
-    operationId: operationId(),
-    error: sanitizeError(error),
-  });
+  const log = createMainWorkflowLog(logging, 'application.lifecycle');
+  log.record(
+    { step: 'window.load', outcome: 'failed', reason: 'WINDOW_STARTUP_FAILED', level: 'error' },
+    error,
+  );
   dialog.showErrorBox(
     'RPG Buddy could not start',
     'The application could not start. Local diagnostic logs may contain more information.',
   );
-  fatal(error, 'WINDOW_STARTUP_FAILED');
+  fatal(error, 'WINDOW_STARTUP_FAILED', log.operationId);
 }
 
 void app
@@ -165,6 +182,12 @@ app.on('before-quit', (event) => {
   if (terminating) return;
   event.preventDefault();
   terminating = true;
-  logging.record({ event: 'application.stopped', level: 'info', operationId: operationId() });
+  logging.record({
+    event: 'application.lifecycle',
+    step: 'process.exit',
+    outcome: 'succeeded',
+    level: 'info',
+    operationId: operationId(),
+  });
   void logging.close().finally(() => app.quit());
 });

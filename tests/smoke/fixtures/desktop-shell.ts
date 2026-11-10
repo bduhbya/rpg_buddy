@@ -140,7 +140,7 @@ export const test = base.extend<{ shell: DesktopShell }>({
       expect(rendererErrors).toEqual([]);
       expect(assetErrors).toEqual([]);
       expect(output).not.toMatch(
-        /RPG Buddy startup failed|Uncaught|Error launching app|Unable to find Electron app/i,
+        /RPG Buddy startup failed|\bUncaught\b|Error launching app|Unable to find Electron app/i,
       );
 
       if (development && process.platform !== 'darwin') {
