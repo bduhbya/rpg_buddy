@@ -1,3 +1,4 @@
+import { isTrustedMainFrame } from './trusted-frame';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import { isApplicationInfoRequest } from '../shared/application-info';
 import type { ApplicationInfo, ApplicationInfoResult } from '../shared/application-info';
@@ -35,18 +36,7 @@ export function createApplicationInfoHandler(
   return (event: IpcMainInvokeEvent, ...args: unknown[]): ApplicationInfoResult => {
     try {
       const owner = getOwner();
-      const frame = event.senderFrame;
-      if (
-        !owner ||
-        owner.isDestroyed() ||
-        event.sender !== owner ||
-        !frame ||
-        frame !== owner.mainFrame ||
-        frame.url !== trustedDocument ||
-        owner.getURL() !== trustedDocument
-      ) {
-        return reject('FORBIDDEN');
-      }
+      if (!isTrustedMainFrame(event, owner, trustedDocument)) return reject('FORBIDDEN');
       if (args.length !== 1 || !isApplicationInfoRequest(args[0])) {
         return reject('INVALID_REQUEST');
       }

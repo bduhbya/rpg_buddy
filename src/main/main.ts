@@ -7,6 +7,9 @@ import type { LogReason } from '../shared/logging-contract';
 import { LogService } from './logging';
 import { createLogHandler, operationId } from './logging-ipc';
 import { installDiagnosticsMenu } from './menu';
+import { LIBRARY_SELECTION_CHANNEL } from '../shared/library-selection';
+import { createLibraryHandler } from './library-ipc';
+import { LibrarySelection } from './library-selection';
 
 const logging = new LogService({
   directory: path.join(app.getPath('userData'), 'logs'),
@@ -46,6 +49,24 @@ let mainWindow: BrowserWindow | undefined;
 // Forge's packaged file URL contains platform separators and unescaped spaces.
 // Compare the same canonical URL Chromium uses, never a prefix or origin alone.
 const trustedDocument = new URL(MAIN_WINDOW_WEBPACK_ENTRY).href;
+const librarySelection = new LibrarySelection(app.getPath('userData'), logging);
+ipcMain.handle(
+  LIBRARY_SELECTION_CHANNEL,
+  createLibraryHandler(
+    () => mainWindow?.webContents,
+    trustedDocument,
+    librarySelection,
+    async (owner) => {
+      const window = BrowserWindow.fromWebContents(owner);
+      if (!window || window.isDestroyed()) return undefined;
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Choose library folder',
+        properties: ['openDirectory'],
+      });
+      return result.canceled ? undefined : result.filePaths[0];
+    },
+  ),
+);
 ipcMain.handle(
   LOG_CHANNEL,
   createLogHandler(() => mainWindow?.webContents, trustedDocument, logging),

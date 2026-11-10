@@ -47,17 +47,35 @@ export function planCalculations(
   const visited = new Set<string>();
   const order: DerivedField[] = [];
 
-  // Walk dependencies depth first and append each field after its prerequisites.
-  function visit(field: DerivedField, index: number): void {
-    if (visited.has(field.id)) return;
+  // Put each dependency walk on the heap so long chains do not exhaust the call stack.
+  function frame(field: DerivedField, index: number) {
+    return { field, references: references(field.expression, `/derived/${index}/expression`) };
+  }
+
+  for (const [index, field] of template.value.derived.entries()) {
+    if (visited.has(field.id)) continue;
+    const stack = [frame(field, index)];
     active.add(field.id);
-    for (const reference of references(field.expression, `/derived/${index}/expression`)) {
+
+    while (stack.length) {
+      const current = stack[stack.length - 1];
+      const next = current.references.next();
+      if (next.done) {
+        stack.pop();
+        active.delete(current.field.id);
+        visited.add(current.field.id);
+        order.push(current.field);
+        continue;
+      }
+
+      const reference = next.value;
       if (inputs.has(reference.id)) continue;
       const dependency = derived.get(reference.id);
       if (!dependency) {
         checks.issue(reference.pointer, `Unknown field "${reference.id}".`, 'MISSING_REFERENCE');
       } else if (active.has(reference.id)) {
-        const cycle = [...active].slice([...active].indexOf(reference.id));
+        const chain = [...active];
+        const cycle = chain.slice(chain.indexOf(reference.id));
         checks.diagnostics.push({
           code: 'DEPENDENCY_CYCLE',
           document: template.document,
@@ -68,15 +86,11 @@ export function planCalculations(
             pointer: `/derived/${derived.get(id)!.index}/id`,
           })),
         });
-      } else {
-        visit(dependency.field, dependency.index);
+      } else if (!visited.has(reference.id)) {
+        active.add(reference.id);
+        stack.push(frame(dependency.field, dependency.index));
       }
     }
-    active.delete(field.id);
-    visited.add(field.id);
-    order.push(field);
   }
-
-  template.value.derived.forEach(visit);
   return checks.result<readonly DerivedField[]>(order);
 }

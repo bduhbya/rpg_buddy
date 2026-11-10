@@ -14,6 +14,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from .expressions import expression_type, reject_dependency_cycles
 from .helpers import DATA_CONTRACTS, ContractViolation, read_json, require, safe_number
 from .models import (
+    DOCUMENT_SCHEMA_VERSION, SOURCE_ONLY_INSTANCE_SCHEMA_VERSION,
     DefinitionReference, Entry, Manifest, PresentedField,
     RawDocument, SheetSnapshot, Template,
 )
@@ -26,7 +27,7 @@ class ContractVerifier:
         self.validators: dict[str, Draft202012Validator] = {}
         format_checker = FormatChecker()
         for name in ('system', 'template', 'instance'):
-            schema = read_json(DATA_CONTRACTS / 'v2' / f'{name}.schema.json')
+            schema = read_json(DATA_CONTRACTS / f'v{DOCUMENT_SCHEMA_VERSION}' / f'{name}.schema.json')
             Draft202012Validator.check_schema(schema)
             self.validators[name] = Draft202012Validator(schema, format_checker=format_checker)
 
@@ -88,13 +89,15 @@ class ContractVerifier:
     def validate_sheet_snapshot(self, document: RawDocument) -> SheetSnapshot:
         """Check stored sheet integrity without definitions or arithmetic."""
         version = document.get('schemaVersion')
-        if type(version) in (int, float) and version == 1:
+        if type(version) in (int, float) and version == SOURCE_ONLY_INSTANCE_SCHEMA_VERSION:
             raise ContractViolation(
-                'UNSUPPORTED_SCHEMA_VERSION at /schemaVersion: Instance v1 has no stored final '
-                'results. Keep the original and recreate the sheet in instance v2.'
+                'UNSUPPORTED_SCHEMA_VERSION at /schemaVersion: '
+                f'Instance v{SOURCE_ONLY_INSTANCE_SCHEMA_VERSION} has no stored final '
+                f'results. Keep the original and recreate the sheet in instance v{DOCUMENT_SCHEMA_VERSION}.'
             )
-        require(version == 2,
-                'UNSUPPORTED_SCHEMA_VERSION at /schemaVersion: Expected instance schema v2.')
+        require(version == DOCUMENT_SCHEMA_VERSION,
+                'UNSUPPORTED_SCHEMA_VERSION at /schemaVersion: '
+                f'Expected instance schema v{DOCUMENT_SCHEMA_VERSION}.')
         self.validators['instance'].validate(document)
         sheet = cast(SheetSnapshot, document)
         self._validate_timestamps(sheet)

@@ -1,8 +1,10 @@
 import type { LogInput, LogResult } from './logging-contract';
+import type { LibraryRequest, LibraryResult } from './library-selection';
+export const APPLICATION_INFO_API_VERSION = 1;
 export const APPLICATION_INFO_CHANNEL = 'application:get-info';
 
 export interface ApplicationInfoRequest {
-  apiVersion: 1;
+  apiVersion: typeof APPLICATION_INFO_API_VERSION;
 }
 
 export interface ApplicationInfo {
@@ -20,6 +22,7 @@ export type ApplicationInfoResult =
 export interface ApplicationBridge {
   getApplicationInfo(): Promise<ApplicationInfoResult>;
   recordLog(input: LogInput): Promise<LogResult>;
+  librarySelection(request: LibraryRequest): Promise<LibraryResult>;
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -31,7 +34,7 @@ export function isApplicationInfoRequest(value: unknown): value is ApplicationIn
     record(value) &&
     Object.keys(value).length === 1 &&
     Object.hasOwn(value, 'apiVersion') &&
-    value.apiVersion === 1
+    value.apiVersion === APPLICATION_INFO_API_VERSION
   );
 }
 
@@ -55,7 +58,9 @@ export async function requestApplicationInfo(
   invoke: (channel: string, request: ApplicationInfoRequest) => Promise<unknown>,
 ): Promise<ApplicationInfoResult> {
   try {
-    const result = await invoke(APPLICATION_INFO_CHANNEL, { apiVersion: 1 });
+    const result = await invoke(APPLICATION_INFO_CHANNEL, {
+      apiVersion: APPLICATION_INFO_API_VERSION,
+    });
     return isApplicationInfoResult(result) ? result : { ok: false, code: 'UNAVAILABLE' };
   } catch {
     return { ok: false, code: 'UNAVAILABLE' };

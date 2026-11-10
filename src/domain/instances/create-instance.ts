@@ -1,3 +1,4 @@
+import { DOCUMENT_SCHEMA_VERSION } from '../definitions/schema-version';
 import { calculateBase } from '../calculation/calculate-base';
 import { INSTANCE_ROLES } from '../definitions/document-models';
 import type { Instance, InstanceRole } from '../definitions/document-models';
@@ -85,7 +86,7 @@ export function createInstance(
   }
 
   const instance: Instance = {
-    schemaVersion: 2,
+    schemaVersion: DOCUMENT_SCHEMA_VERSION,
     id,
     entityType: template.entityType,
     role: input.role,

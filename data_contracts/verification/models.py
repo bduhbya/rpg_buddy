@@ -5,7 +5,11 @@ that construct malformed data. Domain checks use the TypedDict shapes below.
 """
 from __future__ import annotations
 
-from typing import Any, Literal, NotRequired, TypeAlias, TypedDict
+from typing import Any, Final, Literal, NotRequired, TypeAlias, TypedDict, get_args
+
+DocumentSchemaVersion: TypeAlias = Literal[2]
+DOCUMENT_SCHEMA_VERSION: Final[int] = get_args(DocumentSchemaVersion)[0]
+SOURCE_ONLY_INSTANCE_SCHEMA_VERSION: Final = 1
 
 Number: TypeAlias = int | float
 JsonValue: TypeAlias = None | bool | int | float | str | list['JsonValue'] | dict[str, 'JsonValue']
@@ -86,7 +90,7 @@ class Section(TypedDict):
 
 
 class Template(TypedDict):
-    schemaVersion: Literal[2]
+    schemaVersion: DocumentSchemaVersion
     id: str
     version: str
     system: DefinitionReference
@@ -127,7 +131,7 @@ class SheetPresentation(TypedDict):
 
 
 class SheetSnapshot(TypedDict):
-    schemaVersion: Literal[2]
+    schemaVersion: DocumentSchemaVersion
     id: str
     entityType: str
     role: Literal['character', 'monster']
@@ -151,7 +155,7 @@ class Source(TypedDict):
 
 
 class Manifest(TypedDict):
-    schemaVersion: Literal[2]
+    schemaVersion: DocumentSchemaVersion
     id: str
     version: str
     label: str

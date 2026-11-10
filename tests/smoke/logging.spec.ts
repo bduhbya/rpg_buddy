@@ -85,8 +85,17 @@ test('logging privacy, exact contracts and safe transport', async () => {
     { ...good, text: 'secret' },
     { ...good, operationId: 'secret' },
     { ...good, event: 'secret' },
+    { ...good, event: 'Library.selection.changed' },
+    { ...good, event: 'library..changed' },
+    { ...good, event: 'library.selection changed' },
+    { ...good, event: 'library.selection.changed\n' },
+    { ...good, event: 'library.' + 'x'.repeat(128) },
     { ...good, level: 'secret' },
     { ...good, reason: 'password=secret' },
+    { ...good, reason: 'lowercase_reason' },
+    { ...good, reason: 'DOUBLE__UNDERSCORE' },
+    { ...good, reason: 'UNAVAILABLE\n' },
+    { ...good, reason: 'X'.repeat(129) },
     { ...good, reason: { password: 'secret' } },
     { ...good, buildId: 'spoofed-build' },
     { ...good, stackFormat: 'repository-source' },
@@ -131,9 +140,24 @@ test('logging privacy, exact contracts and safe transport', async () => {
   expect(consoleLines[0]).toContain('build=test-build');
   expect(records()[0]).toMatchObject({ buildId: 'test-build', stackFormat: 'compiled-js' });
   const debug = new LogService({ directory: temporary, metadata, debug: true });
-  debug.record({ ...input(), level: 'debug' });
+  const customEvent = { ...input(), event: 'library.selection.changed', level: 'debug' } as const;
+  expect(isLogInput(customEvent)).toBe(true);
+  debug.record(customEvent);
+  const customFailure = {
+    ...input(),
+    event: 'library.selection.failed',
+    level: 'warn',
+    reason: 'LIBRARY_FOLDER_UNAVAILABLE',
+  } as const;
+  expect(isLogInput(customFailure)).toBe(true);
+  debug.record(customFailure);
   await debug.close();
-  expect(records().some((row) => row.level === 'debug')).toBe(true);
+  expect(records()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining(customEvent),
+      expect.objectContaining(customFailure),
+    ]),
+  );
 });
 
 test('build identifiers fingerprint maintained inputs, mode and no-Git source archives', () => {
@@ -291,15 +315,22 @@ test('known IPC failure reasons are searchable, bounded and cannot disrupt repli
     record: (entry) => flood.push(entry),
   });
   const request = { apiVersion: 1, input: { ...input(), event: 'renderer.error', level: 'error' } };
+  const unauthorizedEvent = {
+    ...request,
+    input: { ...request.input, event: 'library.selection.changed' },
+  };
+  expect(isLogRequest(unauthorizedEvent)).toBe(true);
+  const restricted = createLogHandler(() => owner, url, { accept: () => true, record: () => {} });
+  expect(restricted(trusted, unauthorizedEvent)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
   for (let n = 0; n < 30; n++) expect(handle(trusted, request)).toEqual({ ok: true });
   expect(handle(trusted, request)).toEqual({ ok: false, code: 'RATE_LIMITED' });
   expect(flood[0]).toMatchObject({ event: 'diagnostic.request.rejected', reason: 'RATE_LIMITED' });
-  expect(
-    createLogHandler(() => owner, url, { accept: () => true, record: () => {} })(trusted, {
-      ...request,
-      input: { ...request.input, reason: 'UNCAUGHT_EXCEPTION' },
-    }),
-  ).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+  const unauthorizedReason = {
+    ...request,
+    input: { ...request.input, reason: 'LIBRARY_FOLDER_UNAVAILABLE' },
+  };
+  expect(isLogRequest(unauthorizedReason)).toBe(true);
+  expect(restricted(trusted, unauthorizedReason)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
 });
 
 test('rotates within five files and repairs restart corruption without losing complete records', async () => {

@@ -1,4 +1,6 @@
-import { expectTypeOf, test } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { expect, expectTypeOf, test } from 'vitest';
+import { DOCUMENT_SCHEMA_VERSION } from '../../../src/domain/definitions/schema-version';
 import type { Metadata } from '../../../src/domain/definitions/common';
 import type { Diagnostic, DiagnosticCode } from '../../../src/domain/definitions/diagnostics';
 import type {
@@ -33,3 +35,16 @@ test('document versions and optional documentary metadata remain explicit', () =
   const unknownCode: DiagnosticCode = 'UNKNOWN_ERROR';
   void [unsupportedRole, missingOperand, executable, additive, unknownCode];
 });
+
+// The versioned schema files are wire artifacts shared with the Python verifier.
+test.each(['system', 'template', 'instance'])(
+  'the %s schema matches the runtime version',
+  (name) => {
+    const schemaFile = new URL(
+      `../../../data_contracts/v${DOCUMENT_SCHEMA_VERSION}/${name}.schema.json`,
+      import.meta.url,
+    );
+    const schema = JSON.parse(readFileSync(schemaFile, 'utf8'));
+    expect(schema.properties.schemaVersion.const).toBe(DOCUMENT_SCHEMA_VERSION);
+  },
+);
