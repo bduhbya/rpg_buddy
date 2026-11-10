@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { LIBRARY_API_VERSION } from '../shared/library-selection';
-import type { LibraryRequest, LibraryView } from '../shared/library-selection';
+import type { LibraryRequest, LibraryResult, LibraryView } from '../shared/library-selection';
+import { createRendererWorkflowLog } from './renderer-logger';
+
+const libraryLog = createRendererWorkflowLog('library.request');
 
 /**
  * Render the library picker, system selection and accessible loading feedback.
@@ -18,27 +21,36 @@ export function LibraryPanel() {
 
   useEffect(() => {
     let active = true;
-    void window.rpgBuddy.librarySelection({ apiVersion: LIBRARY_API_VERSION, action: 'get' }).then(
-      (result) => {
+    void (async () => {
+      let result: LibraryResult;
+      try {
+        result = await window.rpgBuddy.librarySelection(
+          { apiVersion: LIBRARY_API_VERSION, action: 'get' },
+          { reportTransportFailure: true },
+        );
+      } catch (error) {
         if (!active || actionSequence.current !== 0) return;
-        setStatus('');
-        if (result.ok) {
-          setView(result.view);
-          if (result.view.activeSystem) {
-            setCandidate(result.view.activeSystem.id);
-            setStatus(`Loaded ${result.view.activeSystem.label}.`);
-          }
-          setIssue(result.view.issue ?? '');
-        } else {
-          setIssue('Library settings are unavailable. Choose a library folder to try again.');
+        result = libraryLog.failure(
+          { ok: false, code: 'UNAVAILABLE' },
+          'view.request',
+          'BRIDGE_UNAVAILABLE',
+          error,
+        );
+      }
+
+      if (!active || actionSequence.current !== 0) return;
+      setStatus('');
+      if (result.ok) {
+        setView(result.view);
+        if (result.view.activeSystem) {
+          setCandidate(result.view.activeSystem.id);
+          setStatus(`Loaded ${result.view.activeSystem.label}.`);
         }
-      },
-      () => {
-        if (!active || actionSequence.current !== 0) return;
-        setStatus('');
+        setIssue(result.view.issue ?? '');
+      } else {
         setIssue('Library settings are unavailable. Choose a library folder to try again.');
-      },
-    );
+      }
+    })();
     return () => {
       active = false;
     };
@@ -75,7 +87,17 @@ export function LibraryPanel() {
       action.action === 'choose' ? 'Choosing a library folder…' : `Loading ${action.systemId}…`,
     );
     try {
-      const result = await window.rpgBuddy.librarySelection(action);
+      let result: LibraryResult;
+      try {
+        result = await window.rpgBuddy.librarySelection(action, { reportTransportFailure: true });
+      } catch (error) {
+        result = libraryLog.failure(
+          { ok: false, code: 'UNAVAILABLE' },
+          action.action === 'choose' ? 'folder.request' : 'system.request',
+          'BRIDGE_UNAVAILABLE',
+          error,
+        );
+      }
       setStatus('');
       if (!result.ok) {
         setIssue('The library action could not be completed. Try again.');
@@ -95,10 +117,6 @@ export function LibraryPanel() {
       } else if (result.outcome === 'accepted' && result.view.activeSystem) {
         setStatus(`Loaded ${result.view.activeSystem.label}.`);
       }
-    } catch {
-      setStatus('');
-      setIssue('The library action could not be completed. Try again.');
-      if (action.action === 'choose') void refreshAfterPicker(actionId, view);
     } finally {
       inFlight.current = false;
       setBusy(undefined);

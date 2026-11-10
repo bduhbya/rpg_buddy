@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, relative, resolve, isAbsolute } from 'node:path';
+import { dirname, relative, resolve, isAbsolute, sep } from 'node:path';
 import { parseSync } from '@babel/core';
 import { expect, test } from 'vitest';
 import { fileURLToPath } from 'node:url';
@@ -31,8 +31,15 @@ test('domain static and dynamic dependencies stay within the domain', () => {
         if (specifier !== undefined) {
           expect(specifier.startsWith('.'), `${file}: external dependency ${specifier}`).toBe(true);
           const target = relative(root, resolve(dirname(path), specifier));
+          const imports = node.specifiers as { imported?: { name?: string } }[] | undefined;
+          const sharedLoggerType =
+            node.type === 'ImportDeclaration' &&
+            node.importKind === 'type' &&
+            imports?.length === 1 &&
+            imports[0].imported?.name === 'Logger' &&
+            target === ['..', 'shared', 'logging-contract'].join(sep);
           expect(
-            target.startsWith('..') || isAbsolute(target),
+            !sharedLoggerType && (target.startsWith('..') || isAbsolute(target)),
             `${file}: import leaves domain`,
           ).toBe(false);
         }

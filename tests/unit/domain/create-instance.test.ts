@@ -267,3 +267,31 @@ test.each(['newId', 'now'] as const)(
     );
   },
 );
+
+test('reports creation and provider failure through the injected logger', () => {
+  const { catalog, request, providers } = setup();
+  const record = vi.fn();
+  const logging = { logger: { record }, operationId: '00000000-0000-4000-8000-000000000001' };
+  expect(createInstance(catalog, request, providers, 'creation', logging).success).toBe(true);
+  expect(record).toHaveBeenCalledExactlyOnceWith({
+    event: 'instance.create',
+    step: 'sheet.build',
+    outcome: 'succeeded',
+    level: 'info',
+    operationId: logging.operationId,
+  });
+
+  record.mockClear();
+  providers.newId.mockImplementationOnce(() => {
+    throw new Error('private provider error');
+  });
+  expect(createInstance(catalog, request, providers, 'creation', logging).success).toBe(false);
+  expect(record).toHaveBeenCalledExactlyOnceWith({
+    event: 'instance.create',
+    step: 'id.generate',
+    outcome: 'failed',
+    level: 'error',
+    operationId: logging.operationId,
+    reason: 'INVALID_VALUE',
+  });
+});

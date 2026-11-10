@@ -150,20 +150,22 @@ describe('main-process definition loader', () => {
         .split('\n')
         .map((line) => JSON.parse(line));
       const expectedEvents = [
-        ['library.definitions.active.started', 'debug'],
-        ['library.definitions.active.manifest.validated', 'debug'],
-        ['library.definitions.active.archive.validated', 'debug'],
-        ['library.definitions.active.templates.validated', 'debug'],
-        ['library.definitions.active.completed', 'info'],
-        ['library.definitions.exact.started', 'debug'],
-        ['library.definitions.exact.archive.validated', 'debug'],
-        ['library.definitions.exact.template.validated', 'debug'],
-        ['library.definitions.exact.completed', 'info'],
-        ['library.definitions.exact.started', 'debug'],
-        ['library.definitions.exact.archive.validated', 'debug'],
-        ['library.definitions.exact.failed', 'warn'],
+        ['library.definitions.active', 'definitions.load', 'started', 'debug'],
+        ['library.definitions.active', 'manifest.read', 'succeeded', 'debug'],
+        ['library.definitions.active', 'archive.read', 'succeeded', 'debug'],
+        ['library.definitions.active', 'templates.read', 'succeeded', 'debug'],
+        ['library.definitions.active', 'definitions.load', 'succeeded', 'info'],
+        ['library.definitions.exact', 'definitions.load', 'started', 'debug'],
+        ['library.definitions.exact', 'archive.read', 'succeeded', 'debug'],
+        ['library.definitions.exact', 'template.read', 'succeeded', 'debug'],
+        ['library.definitions.exact', 'definitions.load', 'succeeded', 'info'],
+        ['library.definitions.exact', 'definitions.load', 'started', 'debug'],
+        ['library.definitions.exact', 'archive.read', 'succeeded', 'debug'],
+        ['library.definitions.exact', 'template.read', 'rejected', 'warn'],
       ];
-      expect(records.map(({ event, level }) => [event, level])).toEqual(expectedEvents);
+      expect(
+        records.map(({ event, step, outcome, level }) => [event, step, outcome, level]),
+      ).toEqual(expectedEvents);
       expect(records.at(-1)).toMatchObject({ reason: 'INVALID_JSON' });
       expect(
         records.every(

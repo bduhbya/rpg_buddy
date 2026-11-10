@@ -13,6 +13,8 @@ export interface LogInput {
   operationId: string;
   error?: SafeError;
   reason?: LogReason;
+  step?: string;
+  outcome?: string;
 }
 export interface Logger {
   record(input: LogInput): void;
@@ -27,6 +29,7 @@ export interface LogRequest {
 }
 const MAX_LOG_LABEL_LENGTH = 128;
 const LOG_EVENT_PATTERN = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+$/;
+const LOG_OUTCOME_PATTERN = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*$/;
 const LOG_REASON_PATTERN = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/;
 const levels = ['debug', 'info', 'warn', 'error', 'fatal'];
 const names = [
@@ -66,11 +69,17 @@ export function sanitizeError(error: unknown): SafeError {
     return { name: 'Error', stack: '' };
   }
 }
+/**
+ * Validate a record against the shared fields and optional workflow context.
+ * @param value Candidate record from a producer or the logging bridge.
+ * @returns Whether the record has the supported shape and bounded labels.
+ */
 export function isLogInput(value: unknown): value is LogInput {
   if (
     !isRecord(value) ||
     Object.keys(value).some(
-      (key) => !['event', 'level', 'operationId', 'error', 'reason'].includes(key),
+      (key) =>
+        !['event', 'level', 'operationId', 'error', 'reason', 'step', 'outcome'].includes(key),
     )
   )
     return false;
@@ -89,6 +98,18 @@ export function isLogInput(value: unknown): value is LogInput {
     !isOperationId(value.operationId)
   )
     return false;
+  // Structured records supply both fields. Existing producers can omit the pair.
+  if (
+    (value.step !== undefined || value.outcome !== undefined) &&
+    (typeof value.step !== 'string' ||
+      value.step.length > MAX_LOG_LABEL_LENGTH ||
+      !LOG_EVENT_PATTERN.test(value.step) ||
+      typeof value.outcome !== 'string' ||
+      value.outcome.length > MAX_LOG_LABEL_LENGTH ||
+      !LOG_OUTCOME_PATTERN.test(value.outcome))
+  ) {
+    return false;
+  }
   if (value.error !== undefined) {
     if (
       !isRecord(value.error) ||

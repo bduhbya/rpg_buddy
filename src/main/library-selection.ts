@@ -7,6 +7,7 @@ import { loadActiveSystem } from './definition-loader';
 import type { LoadedSystem } from './definition-loader';
 import { SYSTEMS_DIRECTORY } from './library-paths';
 import { readLibraryPreference, writeLibraryPreference } from './library-preference';
+import { createMainWorkflowLog } from './workflow-log';
 
 interface DiscoveredLibrary {
   root: string;
@@ -61,12 +62,21 @@ export class LibrarySelection {
 
   // Restore directory metadata only. Keep recovery available if the preference is unusable.
   private async restore(): Promise<void> {
+    const log = createMainWorkflowLog(this.logger, 'library.restore');
     try {
       const remembered = await readLibraryPreference(this.profilePath);
-      if (remembered) this.library = await discoverLibrary(remembered);
+      if (!remembered) return;
+      this.library = await discoverLibrary(remembered);
+      log.outcome({ step: 'folder.restore', outcome: 'succeeded', level: 'info' });
     } catch {
       this.issue =
         'The remembered library folder is unavailable. Choose a library folder to continue.';
+      log.outcome({
+        step: 'folder.restore',
+        outcome: 'rejected',
+        level: 'warn',
+        reason: 'LIBRARY_RESTORE_UNAVAILABLE',
+      });
     }
   }
 
@@ -107,28 +117,51 @@ export class LibrarySelection {
    */
   async chooseFolder(pick: () => Promise<string | undefined>): Promise<LibraryResult> {
     await this.ready;
-    if (this.choosing) return this.reply('superseded');
+    const log = createMainWorkflowLog(this.logger, 'library.folder');
+    if (this.choosing) {
+      log.outcome({ step: 'folder.pick', outcome: 'superseded', level: 'debug' });
+      return this.reply('superseded');
+    }
     this.choosing = true;
     try {
       const folder = await pick();
-      if (folder === undefined) return this.reply('cancelled');
+      if (folder === undefined) {
+        log.outcome({ step: 'folder.pick', outcome: 'cancelled', level: 'debug' });
+        return this.reply('cancelled');
+      }
 
       // Keep the existing library usable until discovery and the profile write both succeed.
       let discovered: DiscoveredLibrary;
       try {
         discovered = await discoverLibrary(folder);
       } catch {
-        return this.reply(
-          'failed',
-          `Choose a readable library folder that contains a directory named exactly ${SYSTEMS_DIRECTORY}.`,
+        return log.failure(
+          this.reply(
+            'failed',
+            `Choose a readable library folder that contains a directory named exactly ${SYSTEMS_DIRECTORY}.`,
+          ),
+          {
+            step: 'folder.discover',
+            outcome: 'rejected',
+            level: 'warn',
+            reason: 'LIBRARY_FOLDER_UNAVAILABLE',
+          },
         );
       }
       try {
         await writeLibraryPreference(this.profilePath, discovered.root);
       } catch {
-        return this.reply(
-          'failed',
-          'The library folder could not be remembered. Check access to the application profile and try again.',
+        return log.failure(
+          this.reply(
+            'failed',
+            'The library folder could not be remembered. Check access to the application profile and try again.',
+          ),
+          {
+            step: 'preference.write',
+            outcome: 'rejected',
+            level: 'warn',
+            reason: 'LIBRARY_PREFERENCE_UNWRITABLE',
+          },
         );
       }
 
@@ -137,6 +170,7 @@ export class LibrarySelection {
       this.active = undefined;
       this.library = discovered;
       this.issue = null;
+      log.outcome({ step: 'folder.select', outcome: 'succeeded', level: 'info' });
       return this.reply('accepted');
     } finally {
       this.choosing = false;
@@ -150,8 +184,14 @@ export class LibrarySelection {
    */
   async selectSystem(systemId: string): Promise<LibraryResult> {
     await this.ready;
+    const log = createMainWorkflowLog(this.logger, 'library.selection');
     if (!this.library?.systemIds.includes(systemId)) {
-      return this.reply('failed', 'Choose a system from the current library.');
+      return log.failure(this.reply('failed', 'Choose a system from the current library.'), {
+        step: 'request.validate',
+        outcome: 'rejected',
+        level: 'warn',
+        reason: 'LIBRARY_SYSTEM_NOT_DISCOVERED',
+      });
     }
 
     // Release the previous catalog before I/O. Only the newest selection may publish.
@@ -165,21 +205,44 @@ export class LibrarySelection {
     this.active = undefined;
     this.issue = null;
     try {
-      const result = await this.loadSystem(this.library.root, systemId, this.logger);
-      if (generation !== this.generation) return this.reply('superseded');
+      log.record({ step: 'system.select', outcome: 'started', level: 'info' });
+      const result = await this.loadSystem(
+        this.library.root,
+        systemId,
+        this.logger,
+        log.operationId,
+      );
+      if (generation !== this.generation) {
+        log.outcome({ step: 'system.select', outcome: 'superseded', level: 'debug' });
+        return this.reply('superseded');
+      }
       if (result.success) {
         this.active = result.value;
+        log.outcome({ step: 'catalog.publish', outcome: 'succeeded', level: 'info' });
         return this.reply('accepted');
       }
-      const { document, pointer, message } = result.diagnostics[0];
+      const { document, pointer, message, code } = result.diagnostics[0];
       this.issue = `Could not load ${systemId}. ${document}${pointer ? ' ' + pointer : ''}. ${message}`;
-    } catch {
-      if (generation !== this.generation) return this.reply('superseded');
+      return log.failure(this.reply('failed'), {
+        step: 'definitions.load',
+        outcome: 'rejected',
+        level: 'warn',
+        reason: code,
+      });
+    } catch (error) {
+      if (generation !== this.generation) {
+        log.outcome({ step: 'system.select', outcome: 'superseded', level: 'debug' });
+        return this.reply('superseded');
+      }
       this.issue = `Could not load ${systemId}. Try again or choose another system.`;
+      return log.failure(
+        this.reply('failed'),
+        { step: 'definitions.load', outcome: 'failed', level: 'error', reason: 'UNAVAILABLE' },
+        error,
+      );
     } finally {
       if (generation === this.generation) this.settlePendingLoad();
     }
-    return this.reply('failed');
   }
 
   /**

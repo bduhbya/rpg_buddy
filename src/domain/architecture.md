@@ -67,7 +67,7 @@ flowchart TD
 1. [Snapshot validation](instances/validate-instance-snapshot.ts) checks schema, identity and references, UTC timestamps, field maps, presentation coverage, entries and effects using the saved data alone. [Section validation](instances/check-sections.ts) is shared with template validation. It preserves the diagnostics appropriate to each document.
 2. [Template compatibility](instances/check-instance-template.ts) checks the entity type, field sets, input bounds, ordered presentation and permitted effect targets against the resolved exact template. The resolver establishes manifest membership and version identity before this pass.
 
-The [main-process loader](../main/instance-loader.ts) uses the archived revisions named in the sheet. Both successful modes return the same recorded data. Opening performs no formula evaluation, effect application or writes. The loader and snapshot validator share an operation ID through an injected logger. The snapshot validator records the validation outcome without exposing sheet contents or paths.
+The [main-process loader](../main/instance-loader.ts) uses the archived revisions named in the sheet. Both successful modes return the same recorded data. Opening performs no formula evaluation, effect application or writes. The loader records the successful snapshot check and passes its operation ID to the exact definition lookup for debug checkpoints. The loader owns the open outcome. Standalone snapshot validation can still record its result through an injected logger.
 
 ## Edit an instance
 

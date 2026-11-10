@@ -3,18 +3,28 @@ import type { ApplicationInfoResult } from '../shared/application-info';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { LibraryPanel } from './library-panel';
-import { recordRendererError } from './renderer-logger';
+import { createRendererWorkflowLog } from './renderer-logger';
 
+const simulationLog = createRendererWorkflowLog('diagnostic.simulation');
+const applicationInfoLog = createRendererWorkflowLog('application.info');
+
+// Render application information and the support diagnostic action.
 function App() {
   const [diagnostic, setDiagnostic] = useState('');
   const [busy, setBusy] = useState(false);
+  // Report whether both halves of the support simulation were queued.
   async function simulateFailure() {
     setBusy(true);
     const operation = crypto.randomUUID();
     try {
       throw new Error('Simulated diagnostic failure');
     } catch (error) {
-      const result = await recordRendererError('diagnostic.renderer.failure', error, operation);
+      const result = await simulationLog.recordFailure(
+        'renderer.exercise',
+        'SIMULATED_FAILURE',
+        error,
+        operation,
+      );
       setDiagnostic(
         result.ok
           ? `Diagnostic queued. Operation ID: ${operation}`
@@ -29,10 +39,19 @@ function App() {
     let active = true;
     void (async () => {
       try {
-        const info = await window.rpgBuddy.getApplicationInfo();
+        const info = await window.rpgBuddy.getApplicationInfo({ reportTransportFailure: true });
         if (active) setResult(info);
-      } catch {
-        if (active) setResult({ ok: false, code: 'UNAVAILABLE' });
+      } catch (error) {
+        if (active) {
+          setResult(
+            applicationInfoLog.failure(
+              { ok: false, code: 'UNAVAILABLE' },
+              'bridge.invoke',
+              'BRIDGE_UNAVAILABLE',
+              error,
+            ),
+          );
+        }
       }
     })();
     return () => {

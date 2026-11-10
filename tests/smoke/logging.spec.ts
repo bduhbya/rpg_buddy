@@ -83,6 +83,12 @@ test('logging privacy, exact contracts and safe transport', async () => {
     null,
     {},
     { ...good, text: 'secret' },
+    { ...good, step: 'sheet.build' },
+    { ...good, outcome: 'succeeded' },
+    { ...good, step: 'sheet.build', outcome: 'includes private text' },
+    { ...good, step: 'sheet.build', outcome: 'x'.repeat(129) },
+    { ...good, step: 'private/sheet.json', outcome: 'succeeded' },
+    { ...good, step: 'sheet.' + 'x'.repeat(128), outcome: 'succeeded' },
     { ...good, operationId: 'secret' },
     { ...good, event: 'secret' },
     { ...good, event: 'Library.selection.changed' },
@@ -160,6 +166,29 @@ test('logging privacy, exact contracts and safe transport', async () => {
   );
 });
 
+test('stores workflow fields and prints them directly in the console', async () => {
+  const consoleLines: string[] = [];
+  const service = new LogService({
+    directory: temporary,
+    metadata,
+    development: true,
+    consoleWrite: (line) => consoleLines.push(line),
+  });
+  const workflow = {
+    ...input(),
+    event: 'instance.create',
+    step: 'sheet.build',
+    outcome: 'succeeded',
+  } as const;
+  const custom = { ...workflow, outcome: 'ready.for.review' };
+  service.record(workflow);
+  service.record(custom);
+  await service.close();
+  expect(records()).toEqual([expect.objectContaining(workflow), expect.objectContaining(custom)]);
+  expect(consoleLines[0]).toContain('instance.create step=sheet.build outcome=succeeded');
+  expect(consoleLines[1]).toContain('instance.create step=sheet.build outcome=ready.for.review');
+});
+
 test('build identifiers fingerprint maintained inputs, mode and no-Git source archives', () => {
   const require = createRequire(import.meta.url);
   const { createBuildId } = require('../../build/identity.cjs') as {
@@ -229,12 +258,34 @@ test('runtime debug setting filters subsequent records and preserves other level
     ),
   ).toBe(false);
   expect(rows.some((row) => row.operationId === enabled.operationId)).toBe(true);
-  expect(rows.filter((row) => row.event === 'diagnostic.debug.enabled')).toHaveLength(1);
-  expect(rows.filter((row) => row.event === 'diagnostic.debug.disabled')).toHaveLength(1);
-  const transition = rows.find((row) => row.event === 'diagnostic.debug.enabled')!;
+  expect(
+    rows.filter(
+      (row) =>
+        row.event === 'diagnostic.debug' &&
+        row.step === 'setting.change' &&
+        row.outcome === 'enabled',
+    ),
+  ).toHaveLength(1);
+  expect(
+    rows.filter(
+      (row) =>
+        row.event === 'diagnostic.debug' &&
+        row.step === 'setting.change' &&
+        row.outcome === 'disabled',
+    ),
+  ).toHaveLength(1);
+  const transition = rows.find(
+    (row) =>
+      row.event === 'diagnostic.debug' &&
+      row.step === 'setting.change' &&
+      row.outcome === 'enabled',
+  )!;
   expect(
     rows.some(
-      (row) => row.event === 'application.debug' && row.operationId === transition.operationId,
+      (row) =>
+        row.event === 'diagnostic.debug' &&
+        row.step === 'trace.emit' &&
+        row.operationId === transition.operationId,
     ),
   ).toBe(true);
   for (const level of ['info', 'warn', 'error', 'fatal'])
@@ -276,13 +327,13 @@ test('known IPC failure reasons are searchable, bounded and cannot disrupt repli
     );
     for (let n = 0; n < 10; n++) expect(info(event, ...args)).toEqual({ ok: false, code: reason });
     expect(reports).toHaveLength(1);
-    expect(reports[0]).toMatchObject({ event: 'application.info.failed', reason });
+    expect(reports[0]).toMatchObject({ event: 'application.info', level: 'warn', reason });
     reports.length = 0;
     const logging = createLogHandler(() => owner, url, { ...logger, accept: () => true });
     for (let n = 0; n < 10; n++)
       expect(logging(event, ...args)).toEqual({ ok: false, code: reason });
     expect(reports).toHaveLength(1);
-    expect(reports[0]).toMatchObject({ event: 'diagnostic.request.rejected', reason });
+    expect(reports[0]).toMatchObject({ event: 'diagnostic.request', reason });
   }
   const reports: LogInput[] = [];
   const info = createApplicationInfoHandler(
@@ -294,7 +345,11 @@ test('known IPC failure reasons are searchable, bounded and cannot disrupt repli
     { record: (entry) => reports.push(entry) },
   );
   expect(info(trusted, { apiVersion: 1 })).toEqual({ ok: false, code: 'UNAVAILABLE' });
-  expect(reports[0]).toMatchObject({ event: 'application.info.failed', reason: 'UNAVAILABLE' });
+  expect(reports[0]).toMatchObject({
+    event: 'application.info',
+    level: 'error',
+    reason: 'UNAVAILABLE',
+  });
   expect(JSON.stringify(reports)).not.toMatch(/password|private/);
   const broken = createApplicationInfoHandler(
     () => owner,
@@ -314,7 +369,17 @@ test('known IPC failure reasons are searchable, bounded and cannot disrupt repli
     accept: () => true,
     record: (entry) => flood.push(entry),
   });
-  const request = { apiVersion: 1, input: { ...input(), event: 'renderer.error', level: 'error' } };
+  const request = {
+    apiVersion: 1,
+    input: {
+      ...input(),
+      event: 'renderer.runtime',
+      step: 'error.capture',
+      outcome: 'failed',
+      reason: 'UNCAUGHT_ERROR',
+      level: 'error',
+    },
+  };
   const unauthorizedEvent = {
     ...request,
     input: { ...request.input, event: 'library.selection.changed' },
@@ -324,7 +389,7 @@ test('known IPC failure reasons are searchable, bounded and cannot disrupt repli
   expect(restricted(trusted, unauthorizedEvent)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
   for (let n = 0; n < 30; n++) expect(handle(trusted, request)).toEqual({ ok: true });
   expect(handle(trusted, request)).toEqual({ ok: false, code: 'RATE_LIMITED' });
-  expect(flood[0]).toMatchObject({ event: 'diagnostic.request.rejected', reason: 'RATE_LIMITED' });
+  expect(flood[0]).toMatchObject({ event: 'diagnostic.request', reason: 'RATE_LIMITED' });
   const unauthorizedReason = {
     ...request,
     input: { ...request.input, reason: 'LIBRARY_FOLDER_UNAVAILABLE' },
@@ -475,7 +540,9 @@ test('logging IPC validates sender, frame, payload, rate and safe results', () =
     apiVersion: 1,
     input: {
       ...input(),
-      event: 'diagnostic.renderer.failure',
+      event: 'diagnostic.simulation',
+      step: 'renderer.exercise',
+      outcome: 'failed',
       reason: 'SIMULATED_FAILURE',
       level: 'error',
       error: sanitizeError(new Error('private')),
@@ -484,9 +551,12 @@ test('logging IPC validates sender, frame, payload, rate and safe results', () =
   expect(handle(event, request)).toEqual({ ok: true });
   expect(
     records()
-      .map((row) => row.event)
+      .map((row) => [row.event, row.step])
       .sort(),
-  ).toEqual(['diagnostic.main.failure', 'diagnostic.renderer.failure']);
+  ).toEqual([
+    ['diagnostic.simulation', 'main.exercise'],
+    ['diagnostic.simulation', 'renderer.exercise'],
+  ]);
   expect(new Set(records().map((row) => row.operationId)).size).toBe(1);
   for (const bad of [
     { sender: {}, senderFrame: frame },
@@ -506,6 +576,9 @@ test('logging IPC validates sender, frame, payload, rate and safe results', () =
     [{ ...request, extra: true }],
     [request, 'extra'],
     [{ ...request, input: input() }],
+    [{ ...request, input: { ...request.input, step: 'main.exercise' } }],
+    [{ ...request, input: { ...request.input, outcome: 'succeeded' } }],
+    [{ ...request, input: { ...request.input, step: undefined, outcome: undefined } }],
   ])
     expect(handle(event, ...args)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
   for (let n = 0; n < 30; n++) handle(event, request);

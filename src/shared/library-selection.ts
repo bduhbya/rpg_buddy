@@ -94,17 +94,21 @@ function isLibraryResult(value: unknown): value is LibraryResult {
  * Send a library action through the preload bridge.
  * @param invoke IPC transport provided by the preload.
  * @param request A versioned library action.
- * @returns The checked reply or a transport error.
+ * @param onTransportFailure Optional callback after a rejected invoke or invalid reply.
+ * @returns The checked reply or a transport error if the callback does not throw.
  */
 export async function requestLibrary(
   invoke: (channel: string, request: LibraryRequest) => Promise<unknown>,
   request: LibraryRequest,
+  onTransportFailure?: () => void,
 ): Promise<LibraryResult> {
   if (!isLibraryRequest(request)) return { ok: false, code: 'INVALID_REQUEST' };
   try {
     const result = await invoke(LIBRARY_SELECTION_CHANNEL, request);
-    return isLibraryResult(result) ? result : { ok: false, code: 'UNAVAILABLE' };
+    if (isLibraryResult(result)) return result;
   } catch {
-    return { ok: false, code: 'UNAVAILABLE' };
+    // A rejected invoke and an invalid reply are both transport failures.
   }
+  onTransportFailure?.();
+  return { ok: false, code: 'UNAVAILABLE' };
 }

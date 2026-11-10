@@ -15,13 +15,18 @@ test('development and packaged diagnostics write to the disposable startup profi
     .split('\n')
     .filter(Boolean)
     .map((line) => JSON.parse(line));
-  expect(lines.some((row) => row.event === 'application.started')).toBe(true);
+  expect(
+    lines.some((row) => row.event === 'application.lifecycle' && row.step === 'process.start'),
+  ).toBe(true);
   expect(
     lines
       .filter((row) => row.operationId === operation)
-      .map((row) => row.event)
+      .map((row) => [row.event, row.step])
       .sort(),
-  ).toEqual(['diagnostic.main.failure', 'diagnostic.renderer.failure']);
+  ).toEqual([
+    ['diagnostic.simulation', 'main.exercise'],
+    ['diagnostic.simulation', 'renderer.exercise'],
+  ]);
 });
 
 test('keyboard diagnostic failure reports correlated sanitized records', async ({
@@ -63,21 +68,16 @@ test('keyboard diagnostic failure reports correlated sanitized records', async (
       .filter(Boolean)
       .map((line) => JSON.parse(line));
     const pair = lines.filter((row) => row.operationId === operation);
-    expect(pair.map((row) => row.event).sort()).toEqual([
-      'diagnostic.main.failure',
-      'diagnostic.renderer.failure',
+    expect(pair.map((row) => [row.event, row.step]).sort()).toEqual([
+      ['diagnostic.simulation', 'main.exercise'],
+      ['diagnostic.simulation', 'renderer.exercise'],
     ]);
     expect(new Set(pair.map((row) => row.sessionId)).size).toBe(1);
     expect(new Set(pair.map((row) => row.source))).toEqual(new Set(['main', 'renderer']));
     const captured = lines.filter(
-      (row) =>
-        row.sessionId === pair[0].sessionId &&
-        ['renderer.error', 'renderer.rejection'].includes(row.event),
+      (row) => row.sessionId === pair[0].sessionId && row.event === 'renderer.runtime',
     );
-    expect(captured.map((row) => row.event).sort()).toEqual([
-      'renderer.error',
-      'renderer.rejection',
-    ]);
+    expect(captured.map((row) => row.step).sort()).toEqual(['error.capture', 'rejection.capture']);
     expect(JSON.stringify(captured)).not.toContain('private');
     for (const row of pair) {
       expect(row.timestamp).toMatch(/Z$/);
@@ -264,7 +264,7 @@ test.describe('packaged IPC', () => {
       .split('\n')
       .filter(Boolean)
       .map((line) => JSON.parse(line));
-    for (const event of ['application.info.failed', 'diagnostic.request.rejected']) {
+    for (const event of ['application.info', 'diagnostic.request']) {
       expect(
         diagnosticRows.some(
           (row) =>
@@ -322,15 +322,55 @@ test.describe('packaged IPC', () => {
     }
   });
 
-  test('shows accessible failure feedback when the handler is unavailable', async ({
-    shell: { page, application },
+  test('distinguishes a main reply from a local bridge failure while preserving accessible feedback', async ({
+    shell: { page, application, profile },
   }) => {
     if (!application) throw new Error('Packaged application is required.');
     await page.setViewportSize({ width: 360, height: 320 });
-    await application.evaluate(({ ipcMain }) => ipcMain.removeHandler('application:get-info'));
+    await application.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('application:get-info');
+      ipcMain.handle('application:get-info', () => ({ ok: false, code: 'UNAVAILABLE' }));
+    });
     await page.reload();
     const alert = page.getByRole('region', { name: 'Application information' }).getByRole('alert');
-    await expect(alert).toHaveText('Application information is unavailable. Reload to try again.');
+    const message = 'Application information is unavailable. Reload to try again.';
+    await expect(alert).toHaveText(message);
+
+    // Read the disposable profile to distinguish renderer-owned transport failures.
+    async function localFailures() {
+      const logs = await readFile(path.join(profile.userData, 'logs', 'application.jsonl'), 'utf8');
+      return logs
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line))
+        .filter((row) => row.source === 'renderer' && row.reason === 'BRIDGE_UNAVAILABLE');
+    }
+    expect(await localFailures()).toHaveLength(0);
+    await application.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('application:get-info');
+      ipcMain.removeHandler('library:selection');
+    });
+    await page.reload();
+    await expect(alert).toHaveText(message);
+    const library = page.getByRole('region', { name: 'Game library' });
+    await expect(library.getByRole('alert')).toHaveText(/Library settings are unavailable/);
+    const picker = library.getByRole('button', { name: 'Choose library folder' });
+    await picker.click();
+    await expect(library.getByRole('alert')).toHaveText(
+      /The library action could not be completed/,
+    );
+    await expect(picker).toBeFocused();
+    await expect
+      .poll(async () =>
+        (await localFailures())
+          .map(({ event, step, outcome }) => [event, step, outcome].join(':'))
+          .sort(),
+      )
+      .toEqual([
+        'application.info:bridge.invoke:failed',
+        'library.request:folder.request:failed',
+        'library.request:view.request:failed',
+      ]);
     expect(
       await alert.evaluate(
         (element) => element.scrollWidth <= document.documentElement.clientWidth,

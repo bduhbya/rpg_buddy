@@ -75,9 +75,33 @@ test('keyboard controls choose a library, preserve cancellation, and recover fro
 
   const preference = await readFile(path.join(profile.userData, 'library-preference.json'), 'utf8');
   expect(JSON.parse(preference)).toEqual({ folder: await realpath(library) });
-  const logs = await readFile(path.join(profile.userData, 'logs', 'application.jsonl'), 'utf8');
-  expect(logs).toContain('library.definitions.active.completed');
-  expect(logs).toContain('library.definitions.active.failed');
+  await expect
+    .poll(async () => {
+      const logs = await readFile(path.join(profile.userData, 'logs', 'application.jsonl'), 'utf8');
+      const records = logs
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line))
+        .filter(({ event }) => event.startsWith('library.'));
+      const operationIds = [...new Set(records.map(({ operationId }) => operationId))];
+      return records.map(({ event, step, outcome, level, reason, operationId }) => [
+        event,
+        step,
+        outcome,
+        level,
+        reason,
+        operationIds.indexOf(operationId),
+      ]);
+    })
+    .toEqual([
+      ['library.folder', 'folder.select', 'succeeded', 'info', undefined, 0],
+      ['library.selection', 'system.select', 'started', 'info', undefined, 1],
+      ['library.selection', 'catalog.publish', 'succeeded', 'info', undefined, 1],
+      ['library.selection', 'system.select', 'started', 'info', undefined, 2],
+      ['library.selection', 'definitions.load', 'rejected', 'warn', 'INVALID_JSON', 2],
+      ['library.selection', 'system.select', 'started', 'info', undefined, 3],
+      ['library.selection', 'catalog.publish', 'succeeded', 'info', undefined, 3],
+    ]);
 });
 
 test('relaunch restores the library folder and starts without a selected system', async ({

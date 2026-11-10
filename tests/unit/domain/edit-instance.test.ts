@@ -531,3 +531,42 @@ test('rejects a conflicting entry and preserves the last valid source state', ()
   expect(monster).toEqual(before);
   expect(clock.now).not.toHaveBeenCalled();
 });
+
+test('keeps equivalent and rejected edits intact when logging fails', () => {
+  const { catalog, monster, clock } = setup();
+  const before = structuredClone(monster);
+  const record = vi.fn(() => {
+    throw new Error('sink unavailable');
+  });
+  const source = {
+    document: 'ork',
+    logging: { logger: { record }, operationId: '00000000-0000-4000-8000-000000000002' },
+  };
+
+  expect(
+    editInstance(catalog, monster, clock, source, 'set-display-name', monster.displayName),
+  ).toEqual(
+    editInstance(catalog, monster, clock, source.document, 'set-display-name', monster.displayName),
+  );
+  expect(editInstance(catalog, monster, clock, source, 'remove-entry', 'missing-entry')).toEqual(
+    editInstance(catalog, monster, clock, source.document, 'remove-entry', 'missing-entry'),
+  );
+  expect(clock.now).not.toHaveBeenCalled();
+  expect(monster).toEqual(before);
+  expect(record.mock.calls).toEqual([
+    [
+      expect.objectContaining({
+        event: 'instance.edit',
+        step: 'sheet.update',
+        outcome: 'unchanged',
+      }),
+    ],
+    [
+      expect.objectContaining({
+        event: 'instance.edit',
+        step: 'change.apply',
+        outcome: 'rejected',
+      }),
+    ],
+  ]);
+});

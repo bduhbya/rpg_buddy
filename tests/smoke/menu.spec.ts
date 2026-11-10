@@ -74,23 +74,46 @@ test('native debug checkbox controls logging and resets to the next launch defau
         .filter(Boolean)
         .map((line) => JSON.parse(line));
       const session = rows.findLast(
-        (row) => row.pid === initial.pid && row.event === 'application.started',
+        (row) =>
+          row.pid === initial.pid &&
+          row.event === 'application.lifecycle' &&
+          row.step === 'process.start',
       ).sessionId;
       const current = rows.filter((row) => row.sessionId === session);
-      expect(current.filter((row) => row.event === 'diagnostic.debug.enabled')).toHaveLength(1);
-      expect(current.filter((row) => row.event === 'diagnostic.debug.disabled')).toHaveLength(1);
-      const enabled = current.find((row) => row.event === 'diagnostic.debug.enabled');
+      expect(
+        current.filter(
+          (row) =>
+            row.event === 'diagnostic.debug' &&
+            row.step === 'setting.change' &&
+            row.outcome === 'enabled',
+        ),
+      ).toHaveLength(1);
+      expect(
+        current.filter(
+          (row) =>
+            row.event === 'diagnostic.debug' &&
+            row.step === 'setting.change' &&
+            row.outcome === 'disabled',
+        ),
+      ).toHaveLength(1);
+      const enabled = current.find(
+        (row) =>
+          row.event === 'diagnostic.debug' &&
+          row.step === 'setting.change' &&
+          row.outcome === 'enabled',
+      );
       expect(
         current.some(
           (row) =>
-            row.event === 'application.debug' &&
+            row.event === 'diagnostic.debug' &&
+            row.step === 'trace.emit' &&
             row.level === 'debug' &&
             row.operationId === enabled.operationId,
         ),
       ).toBe(true);
-      expect(current.filter((row) => row.event === 'application.debug')).toHaveLength(
-        startupDebug ? 2 : 1,
-      );
+      expect(
+        current.filter((row) => row.event === 'diagnostic.debug' && row.step === 'trace.emit'),
+      ).toHaveLength(startupDebug ? 2 : 1);
       // Leave the launch with the opposite setting, so the next launch proves
       // the menu choice was not persisted over its environment default.
       expect(

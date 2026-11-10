@@ -38,7 +38,7 @@ Run `npm run test:unit -- tests/unit/domain/effect-operations.test.ts tests/unit
 
 ## Instance creation
 
-Call [createInstance](instances/create-instance.ts) with a validated catalog, an exact system and template request plus a role, ID and UTC time providers, and a diagnostic label. Success returns a complete v2 `Instance` in `value`. It contains editable defaults, the calculated `derived` map, empty entries, and independent presentation sections and field labels with applicable units. Failed resolution or initial calculation returns diagnostics before the providers run.
+Call [createInstance](instances/create-instance.ts) with a validated catalog, an exact system and template request plus a role, ID and UTC time providers, and a diagnostic label. Success returns a complete v2 `Instance` in `value`. It contains editable defaults, the calculated `derived` map, empty entries, and independent presentation sections and field labels with applicable units. Failed resolution or initial calculation returns diagnostics before the providers run. An optional fifth argument supplies `{ logger, operationId }` for recording the outcome.
 
 ## Saved instance validation
 
@@ -48,7 +48,7 @@ Once the exact definition pair has resolved, call [checkInstanceTemplate](instan
 
 ## Instance editing
 
-Call [editInstance](instances/edit-instance.ts) with a validated catalog, a previously valid instance, a clock with `now()`, a diagnostic label, and one operation. For example, `editInstance(catalog, ork, clock, 'ork', 'set-value', 'toughness', 50)` changes Toughness to 50.
+Call [editInstance](instances/edit-instance.ts) with a validated catalog, a previously valid instance, a clock with `now()`, a diagnostic label, and one operation. For example, `editInstance(catalog, ork, clock, 'ork', 'set-value', 'toughness', 50)` changes Toughness to 50. To record the outcome, pass `{ document: "ork", logging: { logger, operationId } }` as the diagnostic source.
 
 | Operation          | Arguments after the operation name                           |
 | ------------------ | ------------------------------------------------------------ |

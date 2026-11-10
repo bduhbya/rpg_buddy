@@ -11,6 +11,7 @@ import {
 } from '../../../src/main/library-preference';
 import { loadActiveSystem } from '../../../src/main/definition-loader';
 import { noopLogger } from '../../../src/shared/logging-contract';
+import type { LogInput } from '../../../src/shared/logging-contract';
 
 vi.mock('node:fs/promises', { spy: true });
 
@@ -82,7 +83,8 @@ describe('main-process library selection', () => {
     expect(await readLibraryPreference(profile)).toBe(library);
     vi.clearAllMocks();
 
-    const restarted = new LibrarySelection(profile, noopLogger);
+    const record = vi.fn();
+    const restarted = new LibrarySelection(profile, { record });
     expect(await restarted.getView()).toMatchObject({
       view: {
         folderName: 'seed-library',
@@ -92,6 +94,13 @@ describe('main-process library selection', () => {
     });
     expect(restarted.getActiveCatalog()).toBeUndefined();
     expect(fs.readFile).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledExactlyOnceWith({
+      event: 'library.restore',
+      step: 'folder.restore',
+      outcome: 'succeeded',
+      level: 'info',
+      operationId: expect.any(String),
+    });
   });
 
   it('preserves the active catalog on picker cancellation or invalid folders and releases it on a successful switch', async () => {
@@ -142,8 +151,11 @@ describe('main-process library selection', () => {
     expect(await readLibraryPreference(profile)).toBe(library);
   });
 
-  it('preserves the folder and catalog if persisting a replacement fails', async () => {
-    const selection = new LibrarySelection(profile, noopLogger);
+  it('preserves the folder and catalog if persisting a replacement and recording the failure both fail', async () => {
+    const record = vi.fn(() => {
+      throw new Error('diagnostic sink failed');
+    });
+    const selection = new LibrarySelection(profile, { record });
     await selection.chooseFolder(async () => library);
     await selection.selectSystem('rogue-trader');
     const active = selection.getActiveCatalog();
@@ -161,16 +173,33 @@ describe('main-process library selection', () => {
     expect(selection.getActiveCatalog()).toBe(active);
     expect(await readLibraryPreference(profile)).toBe(library);
     expect(await fs.readdir(profile)).toEqual(['library-preference.json']);
+    expect(record).toHaveBeenLastCalledWith({
+      event: 'library.folder',
+      step: 'preference.write',
+      outcome: 'rejected',
+      level: 'warn',
+      reason: 'LIBRARY_PREFERENCE_UNWRITABLE',
+      operationId: expect.any(String),
+    });
   });
 
   it('recovers from a missing remembered folder and a malformed preference', async () => {
     await writeLibraryPreference(profile, path.join(temp, 'missing'));
-    const missing = new LibrarySelection(profile, noopLogger);
+    const record = vi.fn();
+    const missing = new LibrarySelection(profile, { record });
     expect(await missing.getView()).toMatchObject({
       view: {
         folderName: null,
         issue: expect.stringContaining('remembered library folder is unavailable'),
       },
+    });
+    expect(record).toHaveBeenCalledExactlyOnceWith({
+      event: 'library.restore',
+      step: 'folder.restore',
+      outcome: 'rejected',
+      level: 'warn',
+      reason: 'LIBRARY_RESTORE_UNAVAILABLE',
+      operationId: expect.any(String),
     });
     expect(await missing.chooseFolder(async () => library)).toMatchObject({ outcome: 'accepted' });
 
@@ -206,7 +235,12 @@ describe('main-process library selection', () => {
         entered.resolve(undefined);
         return waiting.promise;
       });
-    const selection = new LibrarySelection(profile, noopLogger, load);
+    const reports: LogInput[] = [];
+    const selection = new LibrarySelection(
+      profile,
+      { record: (entry) => reports.push(entry) },
+      load,
+    );
     await selection.chooseFolder(async () => library);
     await selection.selectSystem('rogue-trader');
     const pending = selection.selectSystem('rogue-trader');
@@ -223,6 +257,52 @@ describe('main-process library selection', () => {
     expect(await selection.getView()).toMatchObject({
       view: { activeSystem: null, issue: expect.stringContaining('malformed/system.json') },
     });
+    const starts = reports.filter(
+      ({ event, step, outcome }) =>
+        event === 'library.selection' && step === 'system.select' && outcome === 'started',
+    );
+    expect(new Set(starts.map(({ operationId }) => operationId)).size).toBe(3);
+    expect(
+      reports
+        .filter(({ operationId }) => operationId === starts[0].operationId)
+        .map(({ step, outcome }) => [step, outcome]),
+    ).toEqual([
+      ['system.select', 'started'],
+      ['definitions.load', 'started'],
+      ['manifest.read', 'succeeded'],
+      ['archive.read', 'succeeded'],
+      ['templates.read', 'succeeded'],
+      ['catalog.publish', 'succeeded'],
+    ]);
+    expect(reports.filter(({ operationId }) => operationId === starts[1].operationId)).toEqual([
+      starts[1],
+      {
+        event: 'library.selection',
+        step: 'system.select',
+        outcome: 'superseded',
+        level: 'debug',
+        operationId: starts[1].operationId,
+      },
+    ]);
+    expect(reports.filter(({ operationId }) => operationId === starts[2].operationId)).toEqual([
+      starts[2],
+      {
+        event: 'library.definitions.active',
+        step: 'definitions.load',
+        outcome: 'started',
+        level: 'debug',
+        operationId: starts[2].operationId,
+      },
+      {
+        event: 'library.selection',
+        step: 'definitions.load',
+        outcome: 'rejected',
+        level: 'warn',
+        reason: 'INVALID_JSON',
+        operationId: starts[2].operationId,
+      },
+    ]);
+    expect(JSON.stringify(reports)).not.toMatch(/seed-library|rogue-trader|malformed|system\.json/);
   });
 
   it('discards a pending catalog when a new library is accepted', async () => {
@@ -263,28 +343,71 @@ describe('main-process library selection', () => {
     const foreign = { sender: owner, senderFrame: { url } } as unknown as IpcMainInvokeEvent;
     const pick = vi.fn(async () => library);
     const selection = new LibrarySelection(profile, noopLogger);
-    const handle = createLibraryHandler(() => owner, url, selection, pick);
+    const reports: LogInput[] = [];
+    const logger = {
+      record(entry: LogInput) {
+        reports.push(entry);
+        throw new Error('diagnostic sink failed');
+      },
+    };
+    const now = vi.spyOn(Date, 'now').mockReturnValue(5000);
+    try {
+      const handle = createLibraryHandler(() => owner, url, selection, pick, logger);
 
-    expect(await handle(foreign, { apiVersion: 1, action: 'choose' })).toEqual({
-      ok: false,
-      code: 'FORBIDDEN',
-    });
-    for (const request of [
-      { apiVersion: 2, action: 'choose' },
-      { apiVersion: 1, action: 'choose', folder: library },
-      { apiVersion: 1, action: 'load', systemId: '../rogue-trader' },
-      { apiVersion: 1, action: 'load', systemId: 'rogue-trader', extra: true },
-    ]) {
-      expect(await handle(trusted, request)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+      expect(await handle(foreign, { apiVersion: 1, action: 'choose' })).toEqual({
+        ok: false,
+        code: 'FORBIDDEN',
+      });
+      for (const request of [
+        { apiVersion: 2, action: 'choose' },
+        { apiVersion: 1, action: 'choose', folder: library },
+        { apiVersion: 1, action: 'load', systemId: '../rogue-trader' },
+        { apiVersion: 1, action: 'load', systemId: 'rogue-trader', extra: true },
+      ]) {
+        expect(await handle(trusted, request)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+      }
+      expect(await handle(trusted, { apiVersion: 1, action: 'get' }, 'extra')).toEqual({
+        ok: false,
+        code: 'INVALID_REQUEST',
+      });
+      expect(pick).not.toHaveBeenCalled();
+      expect(await handle(trusted, { apiVersion: 1, action: 'choose' })).toMatchObject({
+        outcome: 'accepted',
+      });
+      expect(pick).toHaveBeenCalledWith(owner);
+      expect(reports).toEqual([
+        {
+          event: 'library.request',
+          step: 'sender.authorize',
+          outcome: 'rejected',
+          level: 'warn',
+          reason: 'FORBIDDEN',
+          operationId: expect.any(String),
+        },
+      ]);
+
+      pick.mockRejectedValueOnce(new TypeError(library));
+      expect(await handle(trusted, { apiVersion: 1, action: 'choose' })).toEqual({
+        ok: false,
+        code: 'UNAVAILABLE',
+      });
+      expect(reports[1]).toMatchObject({
+        event: 'library.request',
+        step: 'request.dispatch',
+        outcome: 'failed',
+        level: 'error',
+        reason: 'UNAVAILABLE',
+        error: { name: 'TypeError' },
+      });
+      pick.mockRejectedValueOnce(new Error('second dispatch failure'));
+      expect(await handle(trusted, { apiVersion: 1, action: 'choose' })).toEqual({
+        ok: false,
+        code: 'UNAVAILABLE',
+      });
+      expect(reports).toHaveLength(2);
+      expect(JSON.stringify(reports)).not.toContain('seed-library');
+    } finally {
+      now.mockRestore();
     }
-    expect(await handle(trusted, { apiVersion: 1, action: 'get' }, 'extra')).toEqual({
-      ok: false,
-      code: 'INVALID_REQUEST',
-    });
-    expect(pick).not.toHaveBeenCalled();
-    expect(await handle(trusted, { apiVersion: 1, action: 'choose' })).toMatchObject({
-      outcome: 'accepted',
-    });
-    expect(pick).toHaveBeenCalledWith(owner);
   });
 });

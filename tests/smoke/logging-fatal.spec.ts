@@ -56,7 +56,13 @@ for (const failure of ['exception', 'rejection']) {
         .split('\n')
         .filter(Boolean)
         .map((line) => JSON.parse(line));
-      const fatal = rows.filter((row) => row.pid === pid && row.event === 'application.fatal');
+      const fatal = rows.filter(
+        (row) =>
+          row.pid === pid &&
+          row.event === 'application.lifecycle' &&
+          row.step === 'process.exit' &&
+          row.outcome === 'failed',
+      );
       expect(fatal).toHaveLength(1);
       expect(fatal[0].error.name).toBe('TypeError');
       expect(fatal[0].reason).toBe(

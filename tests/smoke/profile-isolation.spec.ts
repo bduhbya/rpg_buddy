@@ -70,10 +70,12 @@ test('isolated launch cannot write to or rotate a separate active profile', asyn
       .filter(Boolean)
       .map((line) => JSON.parse(line));
     expect(records.map((row) => row.event)).toEqual(
+      expect.arrayContaining(['application.lifecycle', 'diagnostic.simulation']),
+    );
+    expect(records).toEqual(
       expect.arrayContaining([
-        'application.started',
-        'diagnostic.renderer.failure',
-        'diagnostic.main.failure',
+        expect.objectContaining({ event: 'diagnostic.simulation', step: 'main.exercise' }),
+        expect.objectContaining({ event: 'diagnostic.simulation', step: 'renderer.exercise' }),
       ]),
     );
     expect(snapshots()).toEqual(before);
