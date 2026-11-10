@@ -1,6 +1,6 @@
 # Domain API reference
 
-The domain provides framework-independent definition validation, exact-version resolution, instance operations, and calculation. The [architecture guide](architecture.md) describes how these operations fit together, including [instance creation](architecture.md#create-an-instance) and [editing](architecture.md#edit-an-instance).
+The domain provides framework-independent definition validation, exact-version resolution, instance operations, and calculation. The [architecture guide](architecture.md) describes how these operations fit together, including [instance creation](architecture.md#create-an-instance), [editing](architecture.md#edit-an-instance), and [loading](architecture.md#open-a-saved-instance).
 
 Run test commands from the repository root.
 
@@ -8,7 +8,7 @@ Run test commands from the repository root.
 
 `validateSystemManifest(value, document)` in `src/domain/definition-processing/validate-manifest.ts` and `validateTemplate(value, document)` in `src/domain/definition-processing/validate-template.ts` accept unknown parsed JSON and a caller-supplied logical document identifier. Both return either `{ success: true, value }` or `{ success: false, diagnostics }`. Check `success` before accessing the corresponding property. Diagnostic codes are stable; messages describe the issue and pointers locate it within the document.
 
-These pure validators accept v2 definitions and check their closed shapes and document-local constraints without changing the input. Successful values reference the original object: revalidate after mutation. Template validation checks expression syntax in every branch, but does not resolve referenced fields/definitions, infer expression types, detect dependency cycles or calculate results. Structural success alone does not make a definition ready for evaluation. Definition file loading and saved-instance validation belong to later phases.
+These pure validators accept v2 definitions and check their closed shapes and document-local constraints without changing the input. Successful values reference the original object: revalidate after mutation. Template validation checks expression syntax in every branch, but does not resolve referenced fields/definitions, infer expression types, detect dependency cycles or calculate results. Structural success alone does not make a definition ready for evaluation. The main process uses these checks when loading definition files.
 
 ## In-memory definition catalog API
 
@@ -39,6 +39,12 @@ Run `npm run test:unit -- tests/unit/domain/effect-operations.test.ts tests/unit
 ## Instance creation
 
 Call [createInstance](instances/create-instance.ts) with a validated catalog, an exact system and template request plus a role, ID and UTC time providers, and a diagnostic label. Success returns a complete v2 `Instance` in `value`. It contains editable defaults, the calculated `derived` map, empty entries, and independent presentation sections and field labels with applicable units. Failed resolution or initial calculation returns diagnostics before the providers run.
+
+## Saved instance validation
+
+Call [validateInstanceSnapshot](instances/validate-instance-snapshot.ts) with parsed JSON and a logical document label. Optionally supply `{ logger, operationId }` to record the validation outcome. Success returns the original input as an `Instance`. Treat it as validated for its current contents and revalidate after mutation. Failure returns located diagnostics, including version-specific guidance for source-only sheets. The snapshot validator checks that every effect targets a stored derived field and every stored field has a label and one section membership.
+
+Once the exact definition pair has resolved, call [checkInstanceTemplate](instances/check-instance-template.ts) with the validated sheet, the resolved template and the sheet's diagnostic label. This checks the entity type, exact field sets, input bounds, presentation and effect targets. Both calls preserve the recorded results and perform no calculation. The [saved instance flow](architecture.md#open-a-saved-instance) shows how the main process uses them to choose editable or read-only mode.
 
 ## Instance editing
 
