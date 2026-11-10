@@ -59,7 +59,9 @@ test('isolated launch cannot write to or rotate a separate active profile', asyn
     const before = snapshots();
     const isolated = await launch(testProfile);
     await isolated.page.getByRole('button', { name: 'Simulate diagnostic failure' }).click();
-    await expect(isolated.page.getByRole('status')).toContainText('Diagnostic queued.');
+    await expect(
+      isolated.page.getByRole('region', { name: 'Support diagnostics' }).getByRole('status'),
+    ).toContainText('Diagnostic queued.');
     const records = readFileSync(
       path.join(testProfile.userData, 'logs', 'application.jsonl'),
       'utf8',

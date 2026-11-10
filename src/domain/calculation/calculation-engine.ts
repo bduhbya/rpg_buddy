@@ -1,3 +1,4 @@
+import { checkDerivedExpressionTypes } from '../definition-processing/validate-expression';
 import type { Expression } from '../definitions/expressions';
 import type { Template } from '../definitions/document-models';
 import type { LocatedDefinition } from '../definition-processing/in-memory-definition-catalog';
@@ -7,34 +8,6 @@ import { validateEntryEffects } from './validate-entry-effects';
 import { applyEffectOperation } from './effect-operations';
 import { childPointer, DefinitionChecks } from '../instances/structural-validation';
 import type { ValidationResult } from '../instances/structural-validation';
-
-// Check operand types recursively, including both branches of a conditional.
-function checkExpressionType(
-  expression: Expression,
-  expected: 'number' | 'boolean',
-  pointer: string,
-  checks: DefinitionChecks,
-): void {
-  const actual = expression.op === 'equal' ? 'boolean' : 'number';
-  if (actual !== expected)
-    checks.issue(pointer, `Expected ${expected} expression, received ${actual}.`, 'TYPE_MISMATCH');
-  switch (expression.op) {
-    case 'floor':
-      checkExpressionType(expression.value, 'number', `${pointer}/value`, checks);
-      break;
-    case 'divide':
-    case 'multiply':
-    case 'equal':
-      checkExpressionType(expression.left, 'number', `${pointer}/left`, checks);
-      checkExpressionType(expression.right, 'number', `${pointer}/right`, checks);
-      break;
-    case 'if':
-      checkExpressionType(expression.condition, 'boolean', `${pointer}/condition`, checks);
-      checkExpressionType(expression.then, 'number', `${pointer}/then`, checks);
-      checkExpressionType(expression.else, 'number', `${pointer}/else`, checks);
-      break;
-  }
-}
 
 // Evaluate against known field values, evaluating only the selected conditional branch.
 function evaluateExpression(
@@ -109,6 +82,7 @@ export function calculateDerived(
   sourceValues: LocatedDefinition<unknown>,
   entries?: LocatedDefinition<unknown>,
 ): ValidationResult<Record<string, number>> {
+  // Establish the template's structure, dependency order and effect targets before evaluation.
   const validated = validateTemplate(template.value, template.document);
   if (!validated.success) return validated;
   const evaluationOrder = planCalculations(template);
@@ -119,9 +93,8 @@ export function calculateDerived(
   );
   if (!effectsByTarget.success) return effectsByTarget;
   const checks = new DefinitionChecks(template.document);
-  template.value.derived.forEach((field, index) =>
-    checkExpressionType(field.expression, 'number', `/derived/${index}/expression`, checks),
-  );
+  checkDerivedExpressionTypes(template.value, checks);
+  // Check input coverage and bounds before using the cache for evaluation.
   const inputChecks = new DefinitionChecks(sourceValues.document);
   const values = new Map<string, number>();
   const inputs = template.value.inputs;

@@ -14,10 +14,10 @@ export function validateSystemManifest(
   document: string,
 ): ValidationResult<SystemManifest> {
   const checks = new DefinitionChecks(document);
+  if (!checks.definitionSchemaVersion(value)) return checks.result<SystemManifest>(value);
   if (
     checks.object(value, '', ['schemaVersion', 'id', 'version', 'label', 'source', 'templates'])
   ) {
-    checks.definitionSchemaVersion(value);
     checks.slug(value.id, '/id');
     checks.version(value.version, '/version');
     checks.text(value.label, '/label');

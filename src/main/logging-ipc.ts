@@ -1,3 +1,4 @@
+import { isTrustedMainFrame } from './trusted-frame';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { isLogRequest, sanitizeError } from '../shared/logging-contract';
@@ -31,16 +32,7 @@ export function createLogHandler(
   return (event: IpcMainInvokeEvent, ...args: unknown[]): LogResult => {
     try {
       const owner = getOwner();
-      if (
-        !owner ||
-        owner.isDestroyed() ||
-        event.sender !== owner ||
-        !event.senderFrame ||
-        event.senderFrame !== owner.mainFrame ||
-        event.senderFrame.url !== trustedDocument ||
-        owner.getURL() !== trustedDocument
-      )
-        return reject('FORBIDDEN');
+      if (!isTrustedMainFrame(event, owner, trustedDocument)) return reject('FORBIDDEN');
       if (Date.now() - start >= 1000) {
         start = Date.now();
         count = 0;
@@ -48,6 +40,7 @@ export function createLogHandler(
       if (++count > 30) return reject('RATE_LIMITED');
       if (args.length !== 1 || !isLogRequest(args[0])) return reject('INVALID_REQUEST');
       const input = args[0].input;
+      // Renderer authorization is narrower than the shared event-name format.
       if (
         !['renderer.error', 'renderer.rejection', 'diagnostic.renderer.failure'].includes(
           input.event,

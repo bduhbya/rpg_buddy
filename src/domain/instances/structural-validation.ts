@@ -1,3 +1,4 @@
+import { DOCUMENT_SCHEMA_VERSION } from '../definitions/schema-version';
 import type { Diagnostic, DiagnosticCode } from '../definitions/diagnostics';
 import {
   DEFINITION_VERSION_PATTERN,
@@ -145,15 +146,22 @@ export class DefinitionChecks {
     return true;
   }
 
-  // Reject an unsupported schema version when the property is present.
-  definitionSchemaVersion(value: JsonObject): void {
-    if (Object.hasOwn(value, 'schemaVersion') && value.schemaVersion !== 2) {
+  // Reject an explicitly unsupported version before applying the current schema's shape.
+  definitionSchemaVersion(value: unknown): boolean {
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      Object.hasOwn(value, 'schemaVersion') &&
+      (value as JsonObject).schemaVersion !== DOCUMENT_SCHEMA_VERSION
+    ) {
       this.issue(
         '/schemaVersion',
-        'Expected definition schema version 2.',
+        `This definition uses an unsupported schema version. Supply a definition that uses schema version ${DOCUMENT_SCHEMA_VERSION}.`,
         'UNSUPPORTED_SCHEMA_VERSION',
       );
+      return false;
     }
+    return true;
   }
 
   // Return accumulated diagnostics or expose the value after all checks have run.

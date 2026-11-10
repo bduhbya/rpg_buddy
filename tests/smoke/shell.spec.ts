@@ -144,6 +144,7 @@ test('bridge isolates child frames and blocks navigation and popups', async ({
 
   expect(await page.evaluate(() => Object.keys(window.rpgBuddy).sort())).toEqual([
     'getApplicationInfo',
+    'librarySelection',
     'recordLog',
   ]);
   await page.evaluate(() => {
@@ -214,9 +215,9 @@ test.describe('packaged IPC', () => {
     if (!application) throw Error('Packaged application is required');
     await application.evaluate(({ ipcMain }) => ipcMain.removeHandler('diagnostics:record'));
     await page.getByRole('button', { name: 'Simulate diagnostic failure' }).click();
-    await expect(page.getByRole('status')).toHaveText(
-      'Diagnostic logging is unavailable. The application can still be used.',
-    );
+    await expect(
+      page.getByRole('region', { name: 'Support diagnostics' }).getByRole('status'),
+    ).toHaveText('Diagnostic logging is unavailable. The application can still be used.');
     expect((await page.evaluate(() => window.rpgBuddy.getApplicationInfo())).ok).toBe(true);
   });
 
@@ -328,13 +329,12 @@ test.describe('packaged IPC', () => {
     await page.setViewportSize({ width: 360, height: 320 });
     await application.evaluate(({ ipcMain }) => ipcMain.removeHandler('application:get-info'));
     await page.reload();
-    await expect(page.getByRole('alert')).toHaveText(
-      'Application information is unavailable. Reload to try again.',
-    );
+    const alert = page.getByRole('region', { name: 'Application information' }).getByRole('alert');
+    await expect(alert).toHaveText('Application information is unavailable. Reload to try again.');
     expect(
-      await page
-        .getByRole('alert')
-        .evaluate((element) => element.scrollWidth <= document.documentElement.clientWidth),
+      await alert.evaluate(
+        (element) => element.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
   });
 });

@@ -1,3 +1,4 @@
+import type { DOCUMENT_SCHEMA_VERSION } from './schema-version';
 import type { DefinitionReference, Metadata } from './common';
 import type { Expression } from './expressions';
 
@@ -7,7 +8,7 @@ import type { Expression } from './expressions';
  * runtime, or enforce string formats, finite/safe integers or semantic invariants.
  */
 export interface SystemManifest {
-  schemaVersion: 2;
+  schemaVersion: typeof DOCUMENT_SCHEMA_VERSION;
   id: string;
   version: string;
   label: string;
@@ -47,7 +48,7 @@ export interface Section {
 }
 
 export interface Template {
-  schemaVersion: 2;
+  schemaVersion: typeof DOCUMENT_SCHEMA_VERSION;
   id: string;
   version: string;
   system: DefinitionReference;
@@ -92,7 +93,7 @@ export interface SheetPresentation {
 
 /** Complete sheet snapshot, including the final results of its last calculation. */
 export interface Instance {
-  schemaVersion: 2;
+  schemaVersion: typeof DOCUMENT_SCHEMA_VERSION;
   id: string;
   entityType: string;
   role: InstanceRole;

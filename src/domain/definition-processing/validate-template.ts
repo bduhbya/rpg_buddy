@@ -52,6 +52,7 @@ function checkField(
  */
 export function validateTemplate(value: unknown, document: string): ValidationResult<Template> {
   const checks = new DefinitionChecks(document);
+  if (!checks.definitionSchemaVersion(value)) return checks.result<Template>(value);
   // Establish the root shape before reading document properties.
   if (
     !checks.object(
@@ -74,7 +75,6 @@ export function validateTemplate(value: unknown, document: string): ValidationRe
     )
   )
     return checks.result<Template>(value);
-  checks.definitionSchemaVersion(value);
   checks.slug(value.id, '/id');
   checks.version(value.version, '/version');
   checks.reference(value.system, '/system');

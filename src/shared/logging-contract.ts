@@ -1,32 +1,7 @@
+export const LOG_API_VERSION = 1;
 export const LOG_CHANNEL = 'diagnostics:record';
-export const LOG_EVENTS = [
-  'application.started',
-  'application.stopped',
-  'application.startup.failed',
-  'application.fatal',
-  'renderer.error',
-  'renderer.rejection',
-  'renderer.terminated',
-  'diagnostic.renderer.failure',
-  'diagnostic.main.failure',
-  'application.debug',
-  'application.info.failed',
-  'diagnostic.request.rejected',
-  'diagnostic.debug.enabled',
-  'diagnostic.debug.disabled',
-] as const;
-export type LogEvent = (typeof LOG_EVENTS)[number];
-export const LOG_REASONS = [
-  'SIMULATED_FAILURE',
-  'INVALID_REQUEST',
-  'FORBIDDEN',
-  'UNAVAILABLE',
-  'RATE_LIMITED',
-  'WINDOW_STARTUP_FAILED',
-  'UNCAUGHT_EXCEPTION',
-  'UNHANDLED_REJECTION',
-] as const;
-export type LogReason = (typeof LOG_REASONS)[number];
+export type LogEvent = string;
+export type LogReason = string;
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 export interface SafeError {
   name: string;
@@ -47,9 +22,12 @@ export type LogResult =
   | { ok: true }
   | { ok: false; code: 'INVALID_REQUEST' | 'FORBIDDEN' | 'UNAVAILABLE' | 'RATE_LIMITED' };
 export interface LogRequest {
-  apiVersion: 1;
+  apiVersion: typeof LOG_API_VERSION;
   input: LogInput;
 }
+const MAX_LOG_LABEL_LENGTH = 128;
+const LOG_EVENT_PATTERN = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+$/;
+const LOG_REASON_PATTERN = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/;
 const levels = ['debug', 'info', 'warn', 'error', 'fatal'];
 const names = [
   'Error',
@@ -96,9 +74,17 @@ export function isLogInput(value: unknown): value is LogInput {
     )
   )
     return false;
-  if (value.reason !== undefined && !LOG_REASONS.includes(value.reason as LogReason)) return false;
   if (
-    !LOG_EVENTS.includes(value.event as LogEvent) ||
+    value.reason !== undefined &&
+    (typeof value.reason !== 'string' ||
+      value.reason.length > MAX_LOG_LABEL_LENGTH ||
+      !LOG_REASON_PATTERN.test(value.reason))
+  )
+    return false;
+  if (
+    typeof value.event !== 'string' ||
+    value.event.length > MAX_LOG_LABEL_LENGTH ||
+    !LOG_EVENT_PATTERN.test(value.event) ||
     !levels.includes(value.level as string) ||
     !isOperationId(value.operationId)
   )
@@ -123,7 +109,7 @@ export function isLogRequest(value: unknown): value is LogRequest {
   return (
     isRecord(value) &&
     Object.keys(value).length === 2 &&
-    value.apiVersion === 1 &&
+    value.apiVersion === LOG_API_VERSION &&
     isLogInput(value.input)
   );
 }
@@ -145,7 +131,7 @@ export async function requestLog(
 ): Promise<LogResult> {
   try {
     if (!isLogInput(input)) return { ok: false, code: 'INVALID_REQUEST' };
-    const result = await invoke(LOG_CHANNEL, { apiVersion: 1, input });
+    const result = await invoke(LOG_CHANNEL, { apiVersion: LOG_API_VERSION, input });
     return isLogResult(result) ? result : { ok: false, code: 'UNAVAILABLE' };
   } catch {
     return { ok: false, code: 'UNAVAILABLE' };

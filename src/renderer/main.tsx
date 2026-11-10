@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import type { ApplicationInfoResult } from '../shared/application-info';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
+import { LibraryPanel } from './library-panel';
 import { recordRendererError } from './renderer-logger';
 
 function App() {
@@ -44,6 +45,7 @@ function App() {
       <h1>RPG Buddy</h1>
       <p className="message">RPG Buddy is ready.</p>
       <p>A home for your characters and adventures, for players and game masters.</p>
+      <LibraryPanel />
       <section aria-labelledby="application-info-heading">
         <h2 id="application-info-heading">Application information</h2>
         {!result && <p role="status">Loading application information…</p>}
