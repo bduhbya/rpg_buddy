@@ -21,13 +21,38 @@ export function validateEntryEffects(
   entries: LocatedDefinition<unknown>,
 ): ValidationResult<Map<string, LocatedEntryEffect>> {
   const checks = new DefinitionChecks(entries.document);
+  const effects = checkEntriesAndCollectEffects(
+    entries.value,
+    '',
+    new Set(template.modifierTargets),
+    'a template-declared derived modifier target',
+    checks,
+  );
+  return checks.result(effects);
+}
+
+/**
+ * Validate entry shape and index unique effects against the caller's allowed target set.
+ * @param value Parsed entries array.
+ * @param entriesPointer Pointer to the array within the diagnostic document.
+ * @param targets Allowed target IDs from the template or stored derived fields.
+ * @param targetDescription Expected target description for diagnostics.
+ * @param checks Call-local collector for entry and effect diagnostics.
+ * @returns Effects indexed by target. Use only after confirming there are no diagnostics.
+ */
+export function checkEntriesAndCollectEffects(
+  value: unknown,
+  entriesPointer: string,
+  targets: ReadonlySet<string>,
+  targetDescription: string,
+  checks: DefinitionChecks,
+): Map<string, LocatedEntryEffect> {
   const effectsByTarget = new Map<string, LocatedEntryEffect>();
   const ids = new Map<string, string>();
-  const targets = new Set(template.modifierTargets);
-  if (checks.array(entries.value, '')) {
-    for (let index = 0; index < entries.value.length; index++) {
-      const entry = entries.value[index];
-      const pointer = childPointer('', index);
+  if (checks.array(value, entriesPointer)) {
+    for (let index = 0; index < value.length; index++) {
+      const entry = value[index];
+      const pointer = childPointer(entriesPointer, index);
       if (
         !checks.object(
           entry,
@@ -48,7 +73,7 @@ export function validateEntryEffects(
         const previous = ids.get(entry.id);
         if (previous !== undefined) {
           checks.issue(`${pointer}/id`, `Entry ID "${entry.id}" is repeated.`, 'DUPLICATE_ID');
-          checks.diagnostics.at(-1)!.related = [{ document: entries.document, pointer: previous }];
+          checks.diagnostics.at(-1)!.related = [{ document: checks.document, pointer: previous }];
         } else ids.set(entry.id, `${pointer}/id`);
       }
       if (!checks.array(entry.effects, `${pointer}/effects`)) continue;
@@ -59,7 +84,7 @@ export function validateEntryEffects(
         if (typeof effect.target !== 'string' || !targets.has(effect.target)) {
           checks.issue(
             `${effectPointer}/target`,
-            'Expected a template-declared derived modifier target.',
+            `Expected ${targetDescription}.`,
             'INVALID_MODIFIER',
           );
         }
@@ -77,12 +102,12 @@ export function validateEntryEffects(
         } else {
           effectsByTarget.set(effect.target, {
             effect,
-            document: entries.document,
+            document: checks.document,
             pointer: effectPointer,
           });
         }
       }
     }
   }
-  return checks.result(effectsByTarget);
+  return effectsByTarget;
 }

@@ -6,6 +6,7 @@ This is a living guide to the domain code. Update it when responsibilities, publ
 
 - [Resolve a system and template](#resolve-a-system-and-template) before creating or calculating an instance.
 - [Create an instance](#create-an-instance) with independent source values, results and presentation.
+- [Open a saved instance](#open-a-saved-instance) from its recorded values and exact references.
 - [Edit an instance](#edit-an-instance) and update its recorded results when calculation inputs change.
 - [Calculate base values](#calculate-base-values) from a resolved template and editable inputs.
 - [Calculate with entry effects](#calculate-with-entry-effects) to include selected instance features.
@@ -44,6 +45,29 @@ flowchart TD
 ```
 
 [Instance creation](instances/create-instance.ts) calculates from the exact template's editable defaults and empty entries. After calculation succeeds, the providers supply a fresh ID and one timestamp for both creation and modification. Each instance owns its reference objects, input map, entries, final results and presentation snapshot.
+
+## Open a saved instance
+
+A saved sheet already contains its final statistics and the presentation needed to display them. The main process owns the file read and determines whether the sheet can be edited. The domain validates the recorded data in two passes.
+
+```mermaid
+flowchart TD
+    A["Canonical library path and strict JSON read<br/>loadSavedInstance · instance-loader.ts"] --> B["Validate the recorded snapshot<br/>validateInstanceSnapshot · validate-instance-snapshot.ts"]
+    A -->|Read or parse failure| X["Reject with diagnostics"]
+    B -->|Invalid snapshot| X
+    B -->|Valid snapshot| C["Check system, role and instance ID against the path"]
+    C -->|Mismatch| X
+    C -->|Matches| D{"Exact archived definitions available?<br/>loadExactDefinitions · definition-loader.ts"}
+    D -->|Unavailable| R["Return the recorded sheet read-only with dependency diagnostics"]
+    D -->|Resolved| E["Check compatibility<br/>checkInstanceTemplate · check-instance-template.ts"]
+    E -->|Conflict| X
+    E -->|Compatible| F["Return the recorded sheet and exact definitions for editing"]
+```
+
+1. [Snapshot validation](instances/validate-instance-snapshot.ts) checks schema, identity and references, UTC timestamps, field maps, presentation coverage, entries and effects using the saved data alone. [Section validation](instances/check-sections.ts) is shared with template validation. It preserves the diagnostics appropriate to each document.
+2. [Template compatibility](instances/check-instance-template.ts) checks the entity type, field sets, input bounds, ordered presentation and permitted effect targets against the resolved exact template. The resolver establishes manifest membership and version identity before this pass.
+
+The [main-process loader](../main/instance-loader.ts) uses the archived revisions named in the sheet. Both successful modes return the same recorded data. Opening performs no formula evaluation, effect application or writes. The loader and snapshot validator share an operation ID through an injected logger. The snapshot validator records the validation outcome without exposing sheet contents or paths.
 
 ## Edit an instance
 
@@ -123,7 +147,7 @@ if (resolved.success) {
 }
 ```
 
-These calls do not validate a complete saved instance. The example uses only its exact references and input values. Full saved-instance validation belongs to the loading phase.
+This example uses only the exact references and editable inputs. See [opening a saved instance](#open-a-saved-instance) for the complete snapshot checks.
 
 ## Calculate with entry effects
 
@@ -161,7 +185,7 @@ Effects add no dependency edges. Each invocation owns fresh maps and preserves t
 
 Calculation definitions live in templates. A v2 instance carries its source state, final statistics, semantic presentation and exact definition references. Resolving those references supplies the rules for edits. The stored values and presentation are sufficient to display a complete sheet.
 
-Published definition versions are immutable. A newer template does not implicitly change an existing instance's rules. Phase 17 will implement loading and the read-only path for valid sheets whose exact definitions are unavailable.
+Published definition versions are immutable. An existing instance uses its recorded version references to determine which definitions enable editing.
 
 Selected entries own snapshots of their descriptions and explicit effects. Those selections can survive changes to a future feature library. Their effects are part of the instance state, while generic formulas and permitted effect targets belong to the template.
 
@@ -169,7 +193,7 @@ Selected entries own snapshots of their descriptions and explicit effects. Those
 
 ## Boundaries and upcoming work
 
-Domain modules depend on other domain modules. Filesystem access, Electron, React and concrete logging infrastructure belong outside this directory. The application layer will obtain definitions and source values, invoke domain operations, and present results or diagnostics.
+Domain modules depend on other domain modules. Filesystem access, Electron, React and concrete logging infrastructure belong outside this directory. The main process reads definitions and saved sheets, invokes domain validation and supplies the logger. The domain accepts a narrow logger interface by injection. The desktop sheet save/load controls are scheduled for a later phase.
 
 | Capability                                                              | Current status                                                                       |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -178,8 +202,9 @@ Domain modules depend on other domain modules. Filesystem access, Electron, Reac
 | Instance-entry effect application                                       | Implemented; Phase 10 acceptance and verifier migration are complete.                |
 | In-memory instance creation                                             | Produces complete v2 sheets with calculated initial values and presentation.         |
 | In-memory instance editing                                              | Publishes complete v2 sheets. Evaluates only when source values or effects change.   |
-| Complete saved-instance validation                                      | Planned in a later roadmap phase.                                                    |
-| Library discovery, selected-system loading and persistence              | Planned in later roadmap phases.                                                     |
+| Complete saved-instance validation                                      | Implemented for standalone snapshots and exact-template compatibility.               |
+| Library discovery, selected-system loading and saved-instance loading   | Implemented in the main process.                                                     |
+| Safe instance saving                                                    | Planned for Phase 18.                                                                |
 | Reusable feature library and selection provenance                       | Requires its own future specification. Current entries are instance-owned snapshots. |
 
 The Python contract verifier retains schema and fixture integrity checks, including expression types/dependencies and snapshot compatibility. Phase 10 retired its arithmetic tracer and calculation API after migrating acceptance to the TypeScript tests; only TypeScript evaluates derived values.

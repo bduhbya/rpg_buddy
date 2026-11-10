@@ -41,7 +41,7 @@ export function parseStrictJson(json: string, document: string): ValidationResul
     }
     return checks.result(value);
   } catch {
-    checks.issue('', 'Provide a valid UTF-8 JSON definition.', 'INVALID_JSON');
+    checks.issue('', 'Provide a file containing valid JSON.', 'INVALID_JSON');
     return checks.result(undefined);
   }
 }

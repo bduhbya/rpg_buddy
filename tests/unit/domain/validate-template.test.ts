@@ -284,3 +284,27 @@ test('rejects malformed field labels, IDs, citations, units and section shapes',
     reject(value, `/sections/0${suffix}`);
   }
 });
+
+test('preserves section duplicate and missing-field diagnostic locations', () => {
+  const value = loadFixtures().template;
+  value.sections[1].id = value.sections[0].id;
+  value.sections[0].fields.shift();
+  expect(validateTemplate(value, document)).toEqual({
+    success: false,
+    diagnostics: [
+      {
+        document,
+        code: 'DUPLICATE_ID',
+        pointer: '/sections/1/id',
+        message: 'ID must be unique within its declaration scope.',
+        related: [{ document, pointer: '/sections/0/id' }],
+      },
+      {
+        document,
+        code: 'INVALID_SECTION',
+        pointer: '/inputs/0/id',
+        message: 'Declared field is missing from sections.',
+      },
+    ],
+  });
+});
