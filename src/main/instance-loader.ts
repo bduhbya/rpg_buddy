@@ -9,7 +9,7 @@ import { validateInstanceSnapshot } from '../domain/instances/validate-instance-
 import type { Logger } from '../shared/logging-contract';
 import { loadExactDefinitions } from './definition-loader';
 import { readLibraryJson, resolveLibraryRoot } from './library-json';
-import { SYSTEMS_DIRECTORY } from './library-paths';
+import { savedInstancePath } from './library-paths';
 import { createMainWorkflowLog } from './workflow-log';
 
 interface InstanceAddress {
@@ -51,8 +51,7 @@ export async function loadSavedInstance(
     const { systemId, role, instanceId } = validated.value;
     const root = await resolveLibraryRoot(libraryRootPath);
     if (!root.success) return log.diagnosticFailure(root, 'root.resolve');
-    const directory = role === 'character' ? 'characters' : 'monsters';
-    const document = `${SYSTEMS_DIRECTORY}/${systemId}/${directory}/${instanceId}.json`;
+    const document = savedInstancePath(systemId, role, instanceId);
 
     const parsed = await readLibraryJson(root.value, document, 'saved sheet');
     if (!parsed.success) return log.diagnosticFailure(parsed, 'sheet.read');

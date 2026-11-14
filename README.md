@@ -70,6 +70,16 @@ Open a pull request into `main` for changes. GitHub Actions runs **Windows valid
 
 The merge policy requires a passing **Windows validation** check and a branch up to date with `main`, including for administrators. Update your branch when the base changes and let validation run again. No GitHub approving-review count is required; repository access is managed by the owner. Automated agents must wait for the owner's explicit approval before merging. The protection settings live in GitHub and must be configured separately from the workflow file.
 
+## Recovering a saved sheet
+
+Saved sheets use `RPG_systems/<system-id>/characters/<instance-id>.json` or `RPG_systems/<system-id>/monsters/<instance-id>.json` under the selected library. A successful overwrite keeps the previous primary as a sibling `.json.bak` file. If a save stops after updating the backup, the primary and backup may contain the same revision. A first save has no predecessor to back up.
+
+1. Close all RPG Buddy instances using the library and wait for any other writes to finish. In the sheet's folder, copy the primary, backup, and any matching `.json.lock`, `.json.<uuid>.tmp`, or `.json.bak.<uuid>.tmp` files that exist to a separate recovery folder. Leave temporary files out of the live sheet path. They may contain incomplete data.
+2. If the primary still opens and contains the desired revision, keep it. If it is missing or damaged and you have a backup to restore, move any damaged primary to the recovery folder under a distinct name, then copy the backup to the canonical filename by dropping only the `.bak` suffix. Keep the original backup. If no usable primary or backup exists, keep the recovery copies for inspection.
+3. With all writers still stopped, remove only this sheet's abandoned lock and temporary files from the library after preserving the copies. Reopen the sheet and verify its contents before saving again. If the restored copy fails to open, retain the recovery files and use the load diagnostic to identify the problem.
+
+The [recovery test](tests/unit/main/instance-saver.test.ts) exercises the main-process save and load APIs. Desktop save and load controls are planned.
+
 ## Diagnostics
 
 The application writes local rotating logs to `%APPDATA%\RPG Buddy\logs` on Windows. No logs are uploaded automatically. Use **Diagnostics > Enable debug tracing** for additional logging during the current launch, or set `RPG_BUDDY_LOG_LEVEL=debug` before starting the application.

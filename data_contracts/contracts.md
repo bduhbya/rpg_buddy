@@ -12,6 +12,8 @@ IDs are stable lowercase ASCII slugs (1-64 characters); field IDs are case-sensi
 
 Template IDs carry the descriptive identity (for example, `creature-core`). Every template definition file is named exactly `template.json`; do not encode its identity in a custom filename. The template's `label` remains its human-readable display name and may change independently of the stable ID. The templates directory supports many distinct templates, each with its own version history. Future descriptive IDs could include `voidship` or `planetary-system`; these require separately specified entity kinds and instance storage contracts before use, since the initial storage/workflow roles support only characters and monsters. entityType is a descriptive stable slug rather than a closed species/class list; additional entity types still require their own specified templates and storage/workflow policy.
 
+At creation, prefer a readable instance ID based on the character or monster's display name. The user should be able to choose the ID within the slug, filename compatibility, and collision rules. The chosen ID is stored in the instance and becomes the filename stem. A later display-name change leaves the ID and filename intact. The [sheet creation phase](../specs/roadmap.md#phase-20-instance-id-preference) leaves the generation strategy open.
+
 Canonical paths relative to a user-selected library root:
 
 ```text
