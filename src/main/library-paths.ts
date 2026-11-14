@@ -1,6 +1,23 @@
 import type { DefinitionReference } from '../domain/definitions/common';
+import type { InstanceRole } from '../domain/definitions/document-models';
 
 export const SYSTEMS_DIRECTORY = 'RPG_systems';
+
+/**
+ * Build the canonical library-relative path for a saved sheet.
+ * @param systemId Validated system ID.
+ * @param role Validated character or monster role.
+ * @param instanceId Validated stable instance ID.
+ * @returns The saved sheet path with forward slashes.
+ */
+export function savedInstancePath(
+  systemId: string,
+  role: InstanceRole,
+  instanceId: string,
+): string {
+  const directory = role === 'character' ? 'characters' : 'monsters';
+  return `${SYSTEMS_DIRECTORY}/${systemId}/${directory}/${instanceId}.json`;
+}
 
 /**
  * Build the library-relative path to a system's active manifest.

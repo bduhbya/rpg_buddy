@@ -61,6 +61,22 @@ export async function readLibraryJson(
   document: string,
   kind: DocumentKind,
 ): Promise<ValidationResult<unknown>> {
+  const result = await readLibraryJsonWithBytes(root, document, kind);
+  return result.success ? { success: true, value: result.value.json } : result;
+}
+
+/**
+ * Read a canonical JSON document and retain the exact bytes that were parsed.
+ * @param root Resolved library root.
+ * @param document Validated library-relative path with forward slashes.
+ * @param kind Document type used in diagnostics.
+ * @returns The parsed document and its original bytes, or diagnostics.
+ */
+export async function readLibraryJsonWithBytes(
+  root: string,
+  document: string,
+  kind: DocumentKind,
+): Promise<ValidationResult<{ json: unknown; bytes: Uint8Array }>> {
   let bytes: Uint8Array;
   try {
     // Check every component before reading so a directory junction cannot redirect the lookup.
@@ -112,5 +128,6 @@ export async function readLibraryJson(
   } catch {
     return failure(document, 'INVALID_JSON', `Provide a valid UTF-8 JSON ${kind}.`);
   }
-  return parseStrictJson(json, document);
+  const parsed = parseStrictJson(json, document);
+  return parsed.success ? { success: true, value: { json: parsed.value, bytes } } : parsed;
 }
