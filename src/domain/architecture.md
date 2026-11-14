@@ -193,7 +193,7 @@ Selected entries own snapshots of their descriptions and explicit effects. Those
 
 ## Boundaries and upcoming work
 
-Domain modules depend on other domain modules. Filesystem access, Electron, React and concrete logging infrastructure belong outside this directory. The main process reads definitions and saved sheets, invokes domain validation and supplies the logger. The domain accepts a narrow logger interface by injection. The desktop sheet save/load controls are scheduled for a later phase.
+Domain modules depend on other domain modules. Filesystem access, Electron, React and concrete logging infrastructure belong outside this directory. The main process reads definitions and saved sheets, invokes domain validation and supplies the logger. The domain accepts a narrow logger interface by injection. The [roadmap](../../specs/roadmap.md) schedules desktop loading controls in Phase 21, shared Rogue Trader sheet presentation in Phase 22, editing in Phase 23, and saving controls in Phase 24.
 
 | Capability                                                              | Current status                                                                       |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -204,7 +204,7 @@ Domain modules depend on other domain modules. Filesystem access, Electron, Reac
 | In-memory instance editing                                              | Publishes complete v2 sheets. Evaluates only when source values or effects change.   |
 | Complete saved-instance validation                                      | Implemented for standalone snapshots and exact-template compatibility.               |
 | Library discovery, selected-system loading and saved-instance loading   | Implemented in the main process.                                                     |
-| Safe instance saving                                                    | Planned for Phase 19.                                                                |
+| Safe instance saving                                                    | Implemented in the main process in Phase 19.                                         |
 | Reusable feature library and selection provenance                       | Requires its own future specification. Current entries are instance-owned snapshots. |
 
 The Python contract verifier retains schema and fixture integrity checks, including expression types/dependencies and snapshot compatibility. Phase 10 retired its arithmetic tracer and calculation API after migrating acceptance to the TypeScript tests; only TypeScript evaluates derived values.

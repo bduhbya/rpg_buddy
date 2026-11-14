@@ -2,6 +2,17 @@
 
 Entries summarize development changes by date and may be updated before committing.
 
+## 2026-11-14
+
+- Added main-process saving for validated character and monster sheets. Saves preserve stored results, stage writes before replacement, and keep the previous valid revision as an overwrite backup. Documented manual recovery for interrupted saves.
+- Split the planned desktop loading and saving interfaces. Scheduled a shared Rogue Trader display for characters and monsters between loading and editing, using the manual's character sheet as the visual specification. The component owns layout, and a configurable presentation specification is deferred until after the first milestone.
+
+## 2026-11-10
+
+- Added desktop library selection and exact-version definition loading for the selected system. The app remembers the library folder across launches.
+- Added main-process loading for saved character and monster sheets. Opening preserves recorded results without recalculation and allows read-only viewing when exact definitions are unavailable.
+- Standardized diagnostic logging across application workflows with stable event names, separate step and outcome fields, and correlated checkpoints. Documented logging conventions for the domain, main process, renderer, and IPC boundary.
+
 ## 2026-11-09
 
 - Completed Phase 15. New character and monster instances carry final statistics and presentation data. Edits that change source values or effects update the sheet and its results atomically. Descriptive and equivalent edits preserve the recorded results.

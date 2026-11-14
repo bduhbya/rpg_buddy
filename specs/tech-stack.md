@@ -42,7 +42,7 @@ Separate rules documents are reserved for reusable mechanics shared across templ
 
 Rulebook citations are independent of development provenance. Phase/review/requirement references may appear only in optional documentary metadata and must not become runtime dependencies.
 
-Presentation metadata describes semantic sections and ordering initially. Full visual replication of printed sheets is deferred.
+The sheet snapshot preserves semantic presentation metadata. The Phase 22 Rogue Trader component uses the manual's character sheet as its visual specification for supported data and owns screen grouping, ordering, and placement. A configurable presentation specification is deferred until after the first functional milestone.
 
 ## Calculation contract
 
