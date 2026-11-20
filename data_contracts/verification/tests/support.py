@@ -48,7 +48,10 @@ class ContractTestCase(unittest.TestCase):
         cls.verifier = ContractVerifier()
         examples = DATA_CONTRACTS / 'examples/v2'
         cls.manifest = read_json(examples / 'system.json')
-        cls.template = read_json(examples / 'templates/creature-core/1.0.1/template.json')
+        reference = next(ref for ref in cls.manifest['templates'] if ref['id'] == 'creature-core')
+        cls.template = read_json(
+            examples / 'templates' / reference['id'] / reference['version'] / 'template.json'
+        )
         cls.character = read_json(examples / 'explorator.instance.json')
         cls.monster = read_json(examples / 'ork-freebooter.instance.json')
 

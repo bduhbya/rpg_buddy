@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { LIBRARY_API_VERSION } from '../shared/library-selection';
 import type { LibraryRequest, LibraryResult, LibraryView } from '../shared/library-selection';
+import type { SheetCreationRequest, SheetCreationResult } from '../shared/sheet-creation-contract';
+import { SheetCreationPanel } from './sheet-creation-panel';
 import { createRendererWorkflowLog } from './renderer-logger';
 
 const libraryLog = createRendererWorkflowLog('library.request');
@@ -14,7 +16,7 @@ export function LibraryPanel() {
   const [candidate, setCandidate] = useState('');
   const [status, setStatus] = useState('Checking the remembered library…');
   const [issue, setIssue] = useState('');
-  const [busy, setBusy] = useState<'choose' | 'load'>();
+  const [busy, setBusy] = useState<'choose' | 'load' | 'create'>();
   const inFlight = useRef(false);
   const actionSequence = useRef(0);
   const picker = useRef<HTMLButtonElement>(null);
@@ -124,57 +126,90 @@ export function LibraryPanel() {
     }
   }
 
+  // Hold the selection steady for the entire creation round trip, including transport failures.
+  async function createSheet(
+    request: SheetCreationRequest,
+  ): Promise<SheetCreationResult | undefined> {
+    if (inFlight.current) return undefined;
+    inFlight.current = true;
+    setBusy('create');
+    try {
+      return await window.rpgBuddy.createCharacterSheet(request);
+    } catch {
+      return {
+        ok: false,
+        code: 'UNAVAILABLE',
+        message: 'The sheet could not be created. Try again.',
+      };
+    } finally {
+      inFlight.current = false;
+      setBusy(undefined);
+    }
+  }
+
   const hasSystems = Boolean(view?.systemIds.length);
   return (
-    <section aria-labelledby="library-heading">
-      <h2 id="library-heading">Game library</h2>
-      <p>
-        {view?.folderName ? `Library folder: ${view.folderName}` : 'Choose a local library folder.'}
-      </p>
-      <button
-        ref={picker}
-        type="button"
-        aria-disabled={busy !== undefined}
-        onClick={() => void perform({ apiVersion: LIBRARY_API_VERSION, action: 'choose' })}
-      >
-        Choose library folder
-      </button>
-      {view?.folderName && !hasSystems && <p>No system folders were found in RPG_systems.</p>}
-      {hasSystems && (
-        <div className="system-controls">
-          <label htmlFor="library-system">Game system</label>
-          <select
-            id="library-system"
-            value={candidate}
-            disabled={busy !== undefined}
-            onChange={(event) => setCandidate(event.currentTarget.value)}
-          >
-            <option value="">Choose a system</option>
-            {view?.systemIds.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            aria-disabled={!candidate || busy !== undefined}
-            onClick={() => {
-              if (candidate)
-                void perform({
-                  apiVersion: LIBRARY_API_VERSION,
-                  action: 'load',
-                  systemId: candidate,
-                });
-            }}
-          >
-            Load system
-          </button>
-        </div>
+    <>
+      <section aria-labelledby="library-heading">
+        <h2 id="library-heading">Game library</h2>
+        <p>
+          {view?.folderName
+            ? `Library folder: ${view.folderName}`
+            : 'Choose a local library folder.'}
+        </p>
+        <button
+          ref={picker}
+          type="button"
+          aria-disabled={busy !== undefined}
+          onClick={() => void perform({ apiVersion: LIBRARY_API_VERSION, action: 'choose' })}
+        >
+          Choose library folder
+        </button>
+        {view?.folderName && !hasSystems && <p>No system folders were found in RPG_systems.</p>}
+        {hasSystems && (
+          <div className="system-controls">
+            <label htmlFor="library-system">Game system</label>
+            <select
+              id="library-system"
+              value={candidate}
+              disabled={busy !== undefined}
+              onChange={(event) => setCandidate(event.currentTarget.value)}
+            >
+              <option value="">Choose a system</option>
+              {view?.systemIds.map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              aria-disabled={!candidate || busy !== undefined}
+              onClick={() => {
+                if (candidate)
+                  void perform({
+                    apiVersion: LIBRARY_API_VERSION,
+                    action: 'load',
+                    systemId: candidate,
+                  });
+              }}
+            >
+              Load system
+            </button>
+          </div>
+        )}
+        {view?.activeSystem && busy !== 'load' && <p>Active system: {view.activeSystem.label}</p>}
+        <p role="status">{status}</p>
+        <p role="alert">{issue}</p>
+      </section>
+      {view?.activeSystem && (
+        <SheetCreationPanel
+          activeSystem={view.activeSystem}
+          busy={busy !== undefined}
+          creating={busy === 'create'}
+          createSheet={createSheet}
+        />
       )}
-      {view?.activeSystem && busy !== 'load' && <p>Active system: {view.activeSystem.label}</p>}
-      <p role="status">{status}</p>
-      <p role="alert">{issue}</p>
-    </section>
+    </>
   );
 }

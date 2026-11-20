@@ -1,3 +1,4 @@
+import { readRuntimeDefinitions } from '../../fixtures/rogue-trader-definitions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -8,19 +9,22 @@ import type { SystemManifest, Template } from '../../../src/domain/definitions/d
 
 vi.mock('node:fs/promises', { spy: true });
 
-const systemId = 'rogue-trader';
+const active = readRuntimeDefinitions();
+const { id: systemId, version } = active.system;
 const selected = 'RPG_systems/' + systemId;
 const activePath = selected + '/system.json';
-const version = '1.0.1';
+const activeTemplatePath = selected + '/' + active.templatePath;
+// Tests may mutate the request while exercising rejection paths.
+const activeRequest = () => structuredClone({ system: active.system, template: active.template });
 // Locate the selected system's manifest archive for a fixture revision.
 const archivedPath = (revision: string) => selected + '/manifests/' + revision + '/system.json';
 // Locate the creature template fixture for a specific revision.
 const templatePath = (revision: string) =>
-  selected + '/templates/creature-core/' + revision + '/template.json';
+  selected + '/templates/' + active.template.id + '/' + revision + '/template.json';
 // Build an exact request for fixtures whose manifest and template share a revision.
 const request = (revision: string) => ({
   system: { id: systemId, version: revision },
-  template: { id: 'creature-core', version: revision },
+  template: { id: active.template.id, version: revision },
 });
 const other = 'RPG_systems/other-system/system.json';
 let temp: string;
@@ -61,7 +65,7 @@ afterEach(async () => {
 
 describe('main-process definition loader', () => {
   it('rejects a template whose filename uses different capitalization', async () => {
-    const document = templatePath(version);
+    const document = activeTemplatePath;
     const original = file(document);
     const temporary = path.join(path.dirname(original), 'rename.json');
     const wrongCase = path.join(path.dirname(original), 'Template.JSON');
@@ -70,7 +74,7 @@ describe('main-process definition loader', () => {
     await fs.rename(temporary, wrongCase);
     for (const result of [
       await loadActiveSystem(root, systemId),
-      await loadExactDefinitions(root, request(version)),
+      await loadExactDefinitions(root, activeRequest()),
     ]) {
       expect(result).toMatchObject({
         success: false,
@@ -80,7 +84,7 @@ describe('main-process definition loader', () => {
   });
 
   it('loads long acyclic dependencies between shallow formulas', async () => {
-    const document = templatePath(version);
+    const document = activeTemplatePath;
     const template: Template = JSON.parse(await fs.readFile(file(document), 'utf8'));
     const inputIds = template.inputs.map(({ id }) => id);
     const count = 7_000;
@@ -100,7 +104,7 @@ describe('main-process definition loader', () => {
     await write(document, JSON.stringify(template));
 
     expect(await loadActiveSystem(root, systemId)).toMatchObject({ success: true });
-    expect(await loadExactDefinitions(root, request(version))).toMatchObject({ success: true });
+    expect(await loadExactDefinitions(root, activeRequest())).toMatchObject({ success: true });
   });
 
   it('reports an unsupported schema before validating the current schema shape', async () => {
@@ -109,7 +113,7 @@ describe('main-process definition loader', () => {
     await write(archivedPath(version), payload);
     for (const [result, document] of [
       [await loadActiveSystem(root, systemId), activePath],
-      [await loadExactDefinitions(root, request(version)), archivedPath(version)],
+      [await loadExactDefinitions(root, activeRequest()), archivedPath(version)],
     ] as const) {
       expect(result).toMatchObject({
         success: false,
@@ -135,11 +139,11 @@ describe('main-process definition loader', () => {
 
     try {
       expect(await loadActiveSystem(root, systemId, logger)).toMatchObject({ success: true });
-      expect(await loadExactDefinitions(root, request(version), logger)).toMatchObject({
+      expect(await loadExactDefinitions(root, activeRequest(), logger)).toMatchObject({
         success: true,
       });
-      await write(templatePath(version), '{"privateProperty": 1, "privateProperty": 2}');
-      expect(await loadExactDefinitions(root, request(version), logger)).toMatchObject({
+      await write(activeTemplatePath, '{"privateProperty": 1, "privateProperty": 2}');
+      expect(await loadExactDefinitions(root, activeRequest(), logger)).toMatchObject({
         success: false,
       });
       await logger.close();
@@ -195,7 +199,7 @@ describe('main-process definition loader', () => {
       }),
     };
 
-    expect(await loadExactDefinitions(root, request(version), logger)).toMatchObject({
+    expect(await loadExactDefinitions(root, activeRequest(), logger)).toMatchObject({
       success: true,
     });
     expect(await loadActiveSystem(root, 'missing-system', logger)).toMatchObject({
@@ -207,7 +211,7 @@ describe('main-process definition loader', () => {
 
   it('reads only the selected definition payloads and leaves library files intact', async () => {
     await write(other, '{invalid');
-    const documents = [activePath, archivedPath(version), templatePath(version), other];
+    const documents = [activePath, archivedPath(version), activeTemplatePath, other];
     const before = await Promise.all(documents.map((document) => fs.readFile(file(document))));
     vi.clearAllMocks();
 
@@ -219,10 +223,10 @@ describe('main-process definition loader', () => {
     expect(result.value.manifest).toMatchObject({ id: systemId, version });
     const location = { document: 'test', pointer: '' };
     expect(
-      result.value.catalog.getTemplate(systemId, request(version).template, location),
+      result.value.catalog.getTemplate(systemId, activeRequest().template, location),
     ).toMatchObject({
       success: true,
-      value: { document: templatePath(version) },
+      value: { document: activeTemplatePath },
     });
     expect(result.value.catalog.getSystem({ id: 'other-system', version }, location)).toMatchObject(
       {
@@ -238,7 +242,7 @@ describe('main-process definition loader', () => {
   it('reads an older exact pair without reading the active manifest or other templates', async () => {
     const old = '1.0.0';
     const manifest: SystemManifest = JSON.parse(await fs.readFile(file(activePath), 'utf8'));
-    const template: Template = JSON.parse(await fs.readFile(file(templatePath(version)), 'utf8'));
+    const template: Template = JSON.parse(await fs.readFile(file(activeTemplatePath), 'utf8'));
     manifest.version = old;
     manifest.templates = [
       { id: template.id, version: old },
@@ -265,7 +269,7 @@ describe('main-process definition loader', () => {
     await fs.unlink(file(archivedPath(version)));
     vi.clearAllMocks();
 
-    expect(await loadExactDefinitions(root, request(version))).toMatchObject({
+    expect(await loadExactDefinitions(root, activeRequest())).toMatchObject({
       success: false,
       diagnostics: [{ code: 'DEFINITION_NOT_FOUND', document: archivedPath(version) }],
     });
@@ -338,7 +342,7 @@ describe('main-process definition loader', () => {
   });
 
   it('requires the exact template to appear in the archived manifest before reading it', async () => {
-    const unlisted = request(version);
+    const unlisted = activeRequest();
     unlisted.template.id = 'not-listed';
 
     expect(await loadExactDefinitions(root, unlisted)).toMatchObject({
@@ -351,27 +355,27 @@ describe('main-process definition loader', () => {
   });
 
   it('reports a missing template required by the active manifest', async () => {
-    await fs.unlink(file(templatePath(version)));
+    await fs.unlink(file(activeTemplatePath));
 
     expect(await loadActiveSystem(root, systemId)).toMatchObject({
       success: false,
-      diagnostics: [{ code: 'DEFINITION_NOT_FOUND', document: templatePath(version) }],
+      diagnostics: [{ code: 'DEFINITION_NOT_FOUND', document: activeTemplatePath }],
     });
   });
 
   it('rejects a template whose system version disagrees with the manifest', async () => {
-    const template: Template = JSON.parse(await fs.readFile(file(templatePath(version)), 'utf8'));
+    const template: Template = JSON.parse(await fs.readFile(file(activeTemplatePath), 'utf8'));
     template.system.version = '9.0.0';
-    await write(templatePath(version), JSON.stringify(template));
+    await write(activeTemplatePath, JSON.stringify(template));
 
     for (const result of [
       await loadActiveSystem(root, systemId),
-      await loadExactDefinitions(root, request(version)),
+      await loadExactDefinitions(root, activeRequest()),
     ]) {
       expect(result).toMatchObject({
         success: false,
         diagnostics: [
-          { code: 'IDENTITY_MISMATCH', document: templatePath(version), pointer: '/system' },
+          { code: 'IDENTITY_MISMATCH', document: activeTemplatePath, pointer: '/system' },
         ],
       });
     }
@@ -386,16 +390,16 @@ describe('main-process definition loader', () => {
   ] as const)(
     'rejects invalid expression semantics during definition loading',
     async (expression, code) => {
-      const template: Template = JSON.parse(await fs.readFile(file(templatePath(version)), 'utf8'));
+      const template: Template = JSON.parse(await fs.readFile(file(activeTemplatePath), 'utf8'));
       template.derived[0].expression = expression;
-      await write(templatePath(version), JSON.stringify(template));
+      await write(activeTemplatePath, JSON.stringify(template));
 
       expect(await loadActiveSystem(root, systemId)).toMatchObject({
         success: false,
         diagnostics: [
           {
             code,
-            document: templatePath(version),
+            document: activeTemplatePath,
             pointer: expect.stringContaining('/derived/0/expression'),
           },
         ],
@@ -408,7 +412,7 @@ describe('main-process definition loader', () => {
     { floors: 128, accepted: false },
     { floors: 1_500, accepted: false },
   ])('handles $floors nested floor operations in both loaders', async ({ floors, accepted }) => {
-    const document = templatePath(version);
+    const document = activeTemplatePath;
     const template: Template = JSON.parse(await fs.readFile(file(document), 'utf8'));
     template.derived[0].expression = { op: 'constant', value: 0 };
     const leaf = JSON.stringify(template.derived[0].expression);
@@ -418,7 +422,7 @@ describe('main-process definition loader', () => {
 
     for (const result of [
       await loadActiveSystem(root, systemId),
-      await loadExactDefinitions(root, request(version)),
+      await loadExactDefinitions(root, activeRequest()),
     ]) {
       if (accepted) {
         expect(result).toMatchObject({ success: true });
@@ -441,15 +445,15 @@ describe('main-process definition loader', () => {
   });
 
   it('accepts a valid expression that would fail if evaluated', async () => {
-    const template: Template = JSON.parse(await fs.readFile(file(templatePath(version)), 'utf8'));
+    const template: Template = JSON.parse(await fs.readFile(file(activeTemplatePath), 'utf8'));
     template.derived[0].expression = {
       op: 'divide',
       left: { op: 'constant', value: 1 },
       right: { op: 'constant', value: 0 },
     };
-    await write(templatePath(version), JSON.stringify(template));
+    await write(activeTemplatePath, JSON.stringify(template));
 
-    expect(await loadExactDefinitions(root, request(version))).toMatchObject({ success: true });
+    expect(await loadExactDefinitions(root, activeRequest())).toMatchObject({ success: true });
   });
 
   it('rejects an unsupported exact archive without substituting the active revision', async () => {
@@ -477,8 +481,8 @@ describe('main-process definition loader', () => {
 
   it('rejects invalid path identifiers before reading a payload', async () => {
     expect(await loadActiveSystem(root, '../rogue-trader')).toMatchObject({ success: false });
-    const invalid = request(version);
-    invalid.system.version = '../../1.0.1';
+    const invalid = activeRequest();
+    invalid.system.version = `../../${version}`;
     expect(await loadExactDefinitions(root, invalid)).toMatchObject({ success: false });
     expect(reads()).toEqual([]);
   });

@@ -1,3 +1,4 @@
+import { readRuntimeDefinitions } from '../../fixtures/rogue-trader-definitions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import * as fs from 'node:fs/promises';
@@ -67,18 +68,11 @@ describe('main-process library selection', () => {
       view: { activeSystem: { id: 'rogue-trader' } },
     });
     expect(selection.getActiveCatalog()).toBeDefined();
+    const { archivePath, templatePath } = readRuntimeDefinitions();
     expect(vi.mocked(fs.readFile).mock.calls.map(([file]) => String(file))).toEqual([
       path.join(library, 'RPG_systems', 'rogue-trader', 'system.json'),
-      path.join(library, 'RPG_systems', 'rogue-trader', 'manifests', '1.0.1', 'system.json'),
-      path.join(
-        library,
-        'RPG_systems',
-        'rogue-trader',
-        'templates',
-        'creature-core',
-        '1.0.1',
-        'template.json',
-      ),
+      path.join(library, 'RPG_systems', 'rogue-trader', archivePath),
+      path.join(library, 'RPG_systems', 'rogue-trader', templatePath),
     ]);
     expect(await readLibraryPreference(profile)).toBe(library);
     vi.clearAllMocks();

@@ -1,3 +1,4 @@
+import { readAuthoredDefinitions } from '../../fixtures/rogue-trader-definitions';
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -9,10 +10,15 @@ import { loadSavedInstance } from '../../../src/main/instance-loader';
 import { LogService } from '../../../src/main/logging';
 
 const systemId = 'rogue-trader';
-const system = 'RPG_systems/rogue-trader';
-const manifest = `${system}/manifests/1.0.1/system.json`;
-const template = `${system}/templates/creature-core/1.0.1/template.json`;
-const fixtures = new URL('../../../data_contracts/examples/v2/', import.meta.url);
+const {
+  root: fixtures,
+  system: fixtureSystem,
+  archivePath,
+  templatePath,
+} = readAuthoredDefinitions();
+const system = `RPG_systems/${fixtureSystem.id}`;
+const manifest = `${system}/${archivePath}`;
+const template = `${system}/${templatePath}`;
 let root: string;
 
 // Write one fixture at its canonical path under the disposable library.
@@ -35,10 +41,7 @@ async function saveExample(name: string) {
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'rpg-buddy-instance-'));
   await put(manifest, await readFile(new URL('system.json', fixtures)));
-  await put(
-    template,
-    await readFile(new URL('templates/creature-core/1.0.1/template.json', fixtures)),
-  );
+  await put(template, await readFile(new URL(templatePath, fixtures)));
 });
 
 afterEach(async () => {
