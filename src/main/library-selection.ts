@@ -43,6 +43,7 @@ export class LibrarySelection {
   private issue: string | null = null;
   private generation = 0;
   private choosing = false;
+  private openingSheet = false;
   private pendingLoad?: { done: Promise<void>; settle: () => void };
   private readonly ready: Promise<void>;
 
@@ -80,13 +81,15 @@ export class LibrarySelection {
     }
   }
 
-  // Return a copy of renderer-safe state. The absolute path and catalog stay in main.
+  // Expose the selected path for display while keeping the active catalog in main.
   private reply(outcome: LibraryOutcome, issue = this.issue): LibraryResult {
     const manifest = this.active?.manifest;
     const view: LibraryView = {
-      folderName: this.library ? path.basename(this.library.root) || 'Drive root' : null,
+      folderPath: this.library?.root ?? null,
       systemIds: [...(this.library?.systemIds ?? [])],
-      activeSystem: manifest ? { id: manifest.id, label: manifest.label } : null,
+      activeSystem: manifest
+        ? { id: manifest.id, label: manifest.label, selectionRevision: this.generation }
+        : null,
       issue,
     };
     return { ok: true, outcome, view };
@@ -118,6 +121,7 @@ export class LibrarySelection {
   async chooseFolder(pick: () => Promise<string | undefined>): Promise<LibraryResult> {
     await this.ready;
     const log = createMainWorkflowLog(this.logger, 'library.folder');
+    if (this.openingSheet) return this.rejectWhileOpening(log, 'folder.pick');
     if (this.choosing) {
       log.outcome({ step: 'folder.pick', outcome: 'superseded', level: 'debug' });
       return this.reply('superseded');
@@ -185,6 +189,7 @@ export class LibrarySelection {
   async selectSystem(systemId: string): Promise<LibraryResult> {
     await this.ready;
     const log = createMainWorkflowLog(this.logger, 'library.selection');
+    if (this.openingSheet) return this.rejectWhileOpening(log, 'system.select');
     if (!this.library?.systemIds.includes(systemId)) {
       return log.failure(this.reply('failed', 'Choose a system from the current library.'), {
         step: 'request.validate',
@@ -243,6 +248,32 @@ export class LibrarySelection {
     } finally {
       if (generation === this.generation) this.settlePendingLoad();
     }
+  }
+
+  // Reject a conflicting selection without changing the current view or revision.
+  private rejectWhileOpening(
+    log: ReturnType<typeof createMainWorkflowLog>,
+    step: string,
+  ): LibraryResult {
+    return log.failure(this.reply('failed', 'A sheet is opening. Try again when it finishes.'), {
+      step,
+      outcome: 'rejected',
+      level: 'warn',
+      reason: 'SHEET_OPEN_IN_PROGRESS',
+    });
+  }
+
+  /**
+   * Reserve the active selection for one saved-sheet open.
+   * @returns A release callback, or undefined when a conflicting operation is active.
+   */
+  tryLockSheetOpen(): (() => void) | undefined {
+    if (this.choosing || this.pendingLoad || this.openingSheet) return undefined;
+    this.openingSheet = true;
+    // Release the reservation when the open settles, including on failure.
+    return () => {
+      this.openingSheet = false;
+    };
   }
 
   /**

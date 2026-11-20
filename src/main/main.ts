@@ -16,6 +16,9 @@ import {
 } from '../shared/sheet-creation-contract';
 import { createSheetCreationHandlers } from './sheet-creation-ipc';
 import { createSheetWorkflow } from './sheet-creation-workflow';
+import { SHEET_LOADING_CHANNEL } from '../shared/sheet-loading-contract';
+import { createSheetLoadingHandler } from './sheet-loading-ipc';
+import { createSheetLoadingWorkflow } from './sheet-loading-workflow';
 import { createMainWorkflowLog } from './workflow-log';
 
 const logging = new LogService({
@@ -62,6 +65,15 @@ const sheetCreation = createSheetCreationHandlers(
 );
 ipcMain.handle(SHEET_CREATION_OPTIONS_CHANNEL, sheetCreation.handleGetSheetCreationOptions);
 ipcMain.handle(CREATE_CHARACTER_SHEET_CHANNEL, sheetCreation.handleCreateCharacterSheet);
+ipcMain.handle(
+  SHEET_LOADING_CHANNEL,
+  createSheetLoadingHandler(
+    () => mainWindow?.webContents,
+    trustedDocument,
+    createSheetLoadingWorkflow(librarySelection, logging),
+    logging,
+  ),
+);
 ipcMain.handle(
   LIBRARY_SELECTION_CHANNEL,
   createLibraryHandler(

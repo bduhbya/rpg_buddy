@@ -10,9 +10,9 @@ export type LibraryRequest =
   | { apiVersion: typeof LIBRARY_API_VERSION; action: 'load'; systemId: string };
 
 export interface LibraryView {
-  folderName: string | null;
+  folderPath: string | null;
   systemIds: string[];
-  activeSystem: { id: string; label: string } | null;
+  activeSystem: { id: string; label: string; selectionRevision: number } | null;
   issue: string | null;
 }
 
@@ -62,16 +62,19 @@ export function isLibraryRequest(value: unknown): value is LibraryRequest {
 // Check the renderer-facing snapshot shape before passing it across the bridge.
 function isLibraryView(value: unknown): value is LibraryView {
   if (!isRecord(value) || Object.keys(value).length !== 4) return false;
-  const { folderName, systemIds, activeSystem, issue } = value;
+  const { folderPath, systemIds, activeSystem, issue } = value;
   return (
-    (folderName === null || typeof folderName === 'string') &&
+    (folderPath === null || typeof folderPath === 'string') &&
     Array.isArray(systemIds) &&
     systemIds.every(isSystemId) &&
     (activeSystem === null ||
       (isRecord(activeSystem) &&
-        Object.keys(activeSystem).length === 2 &&
+        Object.keys(activeSystem).length === 3 &&
         isSystemId(activeSystem.id) &&
-        typeof activeSystem.label === 'string')) &&
+        typeof activeSystem.label === 'string' &&
+        typeof activeSystem.selectionRevision === 'number' &&
+        Number.isSafeInteger(activeSystem.selectionRevision) &&
+        activeSystem.selectionRevision >= 0)) &&
     (issue === null || typeof issue === 'string')
   );
 }

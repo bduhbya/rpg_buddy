@@ -8,6 +8,8 @@ import {
   SHEET_CREATION_OPTIONS_CHANNEL,
 } from '../shared/sheet-creation-contract';
 
+import { SHEET_LOADING_CHANNEL } from '../shared/sheet-loading-contract';
+
 // Signal a transport failure without forwarding raw IPC error details.
 function signalTransportFailure(): never {
   throw new Error('The application bridge could not obtain a valid reply.');
@@ -15,6 +17,7 @@ function signalTransportFailure(): never {
 
 if (window.top === window) {
   const bridge: ApplicationBridge = {
+    sheetLoading: (request) => ipcRenderer.invoke(SHEET_LOADING_CHANNEL, request),
     getSheetCreationOptions: () => ipcRenderer.invoke(SHEET_CREATION_OPTIONS_CHANNEL),
     createCharacterSheet: (request) => ipcRenderer.invoke(CREATE_CHARACTER_SHEET_CHANNEL, request),
     librarySelection: (request, options) =>

@@ -49,14 +49,14 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 describe('main-process library selection', () => {
   it('discovers system IDs without reading definitions and restores only the folder on restart', async () => {
     const selection = new LibrarySelection(profile, noopLogger);
-    expect(await selection.getView()).toMatchObject({ view: { folderName: null, systemIds: [] } });
+    expect(await selection.getView()).toMatchObject({ view: { folderPath: null, systemIds: [] } });
     vi.clearAllMocks();
 
     expect(await selection.chooseFolder(async () => library)).toEqual({
       ok: true,
       outcome: 'accepted',
       view: {
-        folderName: 'seed-library',
+        folderPath: library,
         systemIds: ['malformed', 'rogue-trader'],
         activeSystem: null,
         issue: null,
@@ -81,7 +81,7 @@ describe('main-process library selection', () => {
     const restarted = new LibrarySelection(profile, { record });
     expect(await restarted.getView()).toMatchObject({
       view: {
-        folderName: 'seed-library',
+        folderPath: library,
         systemIds: ['malformed', 'rogue-trader'],
         activeSystem: null,
       },
@@ -118,7 +118,7 @@ describe('main-process library selection', () => {
     await fs.mkdir(path.join(replacement, 'RPG_systems', 'new-system'), { recursive: true });
     expect(await selection.chooseFolder(async () => replacement)).toMatchObject({
       outcome: 'accepted',
-      view: { folderName: 'replacement-library', systemIds: ['new-system'], activeSystem: null },
+      view: { folderPath: replacement, systemIds: ['new-system'], activeSystem: null },
     });
     expect(selection.getActiveCatalog()).toBeUndefined();
     expect(await readLibraryPreference(profile)).toBe(replacement);
@@ -137,7 +137,7 @@ describe('main-process library selection', () => {
     expect(await selection.chooseFolder(async () => replacement)).toMatchObject({
       outcome: 'failed',
       view: {
-        folderName: 'seed-library',
+        folderPath: library,
         activeSystem: { id: 'rogue-trader' },
       },
     });
@@ -160,7 +160,7 @@ describe('main-process library selection', () => {
     expect(await selection.chooseFolder(async () => replacement)).toMatchObject({
       outcome: 'failed',
       view: {
-        folderName: 'seed-library',
+        folderPath: library,
         issue: expect.stringContaining('could not be remembered'),
       },
     });
@@ -183,7 +183,7 @@ describe('main-process library selection', () => {
     const missing = new LibrarySelection(profile, { record });
     expect(await missing.getView()).toMatchObject({
       view: {
-        folderName: null,
+        folderPath: null,
         issue: expect.stringContaining('remembered library folder is unavailable'),
       },
     });
@@ -200,7 +200,7 @@ describe('main-process library selection', () => {
     await fs.writeFile(path.join(profile, 'library-preference.json'), '{"folder":"relative"}');
     const malformed = new LibrarySelection(profile, noopLogger);
     expect(await malformed.getView()).toMatchObject({
-      view: { folderName: null, issue: expect.any(String) },
+      view: { folderPath: null, issue: expect.any(String) },
     });
     expect(await malformed.chooseFolder(async () => library)).toMatchObject({
       outcome: 'accepted',
@@ -314,13 +314,13 @@ describe('main-process library selection', () => {
     await fs.mkdir(path.join(replacement, 'RPG_systems'), { recursive: true });
     await selection.chooseFolder(async () => replacement);
     expect(await pendingView).toMatchObject({
-      view: { folderName: 'replacement', activeSystem: null },
+      view: { folderPath: replacement, activeSystem: null },
     });
     waiting.resolve(await loadActiveSystem(library, 'rogue-trader'));
 
     expect(await pending).toMatchObject({
       outcome: 'superseded',
-      view: { folderName: 'replacement', activeSystem: null },
+      view: { folderPath: replacement, activeSystem: null },
     });
     expect(selection.getActiveCatalog()).toBeUndefined();
   });

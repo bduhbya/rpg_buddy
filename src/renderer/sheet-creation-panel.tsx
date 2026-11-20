@@ -9,6 +9,8 @@ import type {
   SheetCreationResult,
 } from '../shared/sheet-creation-contract';
 
+import { SheetPreview } from './sheet-preview';
+
 const DIACRITICS = /\p{Mark}+/gu;
 const ASCII_WORDS = /[a-z0-9]+/g;
 const TRAILING_HYPHEN = /-$/;
@@ -26,19 +28,6 @@ function suggestId(name: string): string {
   const words = name.normalize('NFKD').replace(DIACRITICS, '').toLowerCase().match(ASCII_WORDS);
   const id = words?.join('-').slice(0, 64).replace(TRAILING_HYPHEN, '') ?? '';
   return DEVICE_NAME.test(id) ? '' : id;
-}
-
-// Render the snapshot's own labels and values without evaluating formulas again.
-function renderValues(sheet: Instance, values: Record<string, number>) {
-  return Object.entries(values).map(([id, value]) => {
-    const field = sheet.presentation.fields[id];
-    return (
-      <div key={id}>
-        <dt>{field.label}</dt>
-        <dd>{field.unit ? `${value} ${field.unit}` : value}</dd>
-      </div>
-    );
-  });
 }
 
 /**
@@ -195,23 +184,7 @@ export function SheetCreationPanel({
         {failure?.message ?? optionsIssue}
       </p>
       <p role="status">{creating ? 'Creating sheet…' : successMessage}</p>
-      {sheet && (
-        <section aria-labelledby="creation-preview">
-          <h3 id="creation-preview" ref={preview} tabIndex={-1}>
-            {sheet.displayName}
-          </h3>
-          <dl>
-            <dt>Role</dt>
-            <dd>{sheet.role}</dd>
-            <dt>Sheet ID</dt>
-            <dd>{sheet.id}</dd>
-          </dl>
-          <h4>Source values</h4>
-          <dl>{renderValues(sheet, sheet.values)}</dl>
-          <h4>Final statistics</h4>
-          <dl>{renderValues(sheet, sheet.derived)}</dl>
-        </section>
-      )}
+      {sheet && <SheetPreview id="creation-preview" sheet={sheet} headingRef={preview} />}
     </section>
   );
 }

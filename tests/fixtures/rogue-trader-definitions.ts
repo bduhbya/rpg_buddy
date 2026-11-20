@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { copyFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import type { SystemManifest } from '../../src/domain/definitions/document-models';
 
 const RUNTIME_SYSTEM = new URL('../../runtime-library/RPG_systems/rogue-trader/', import.meta.url);
@@ -34,4 +36,29 @@ export function readRuntimeDefinitions() {
  */
 export function readAuthoredDefinitions() {
   return readFixtureDefinitions(AUTHORED_EXAMPLES);
+}
+
+/**
+ * Copy the authored archived manifest and exact template into a disposable library.
+ * @param libraryRoot Destination library root.
+ * @param definitions Authored fixture references and source paths.
+ * @returns Canonical library-relative paths with forward slashes.
+ */
+export async function seedAuthoredDefinitions(
+  libraryRoot: string,
+  definitions: ReturnType<typeof readAuthoredDefinitions>,
+) {
+  const system = `RPG_systems/${definitions.system.id}`;
+  const manifest = `${system}/${definitions.archivePath}`;
+  const template = `${system}/${definitions.templatePath}`;
+
+  for (const [document, fixture] of [
+    [manifest, 'system.json'],
+    [template, definitions.templatePath],
+  ]) {
+    const file = path.join(libraryRoot, document);
+    await mkdir(path.dirname(file), { recursive: true });
+    await copyFile(new URL(fixture, definitions.root), file);
+  }
+  return { system, manifest, template };
 }
