@@ -70,7 +70,8 @@ button[aria-disabled='true'] {
   margin: 0;
 }
 
-#sheet-creation-heading ~ form fieldset {
+#sheet-creation-heading ~ form fieldset,
+#sheet-loading-heading ~ form fieldset {
   display: grid;
   gap: 0.35rem;
   max-width: 30rem;
@@ -86,16 +87,20 @@ button[aria-disabled='true'] {
   outline-offset: 3px;
 }
 
-#sheet-creation-heading ~ form button {
+#sheet-creation-heading ~ form button,
+#sheet-loading-heading ~ form button {
   justify-self: start;
   margin-top: 0.5rem;
 }
 
-#creation-error:not(:empty) {
+#creation-error:not(:empty),
+#loading-error:not(:empty) {
   color: #8b2821;
 }
 
 #sheet-creation-heading ~ [role='status']:empty,
-#creation-error:empty {
+#creation-error:empty,
+#sheet-loading-heading ~ [role='status']:empty,
+#loading-error:empty {
   margin: 0;
 }

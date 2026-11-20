@@ -27,14 +27,16 @@ export type OpenedInstance =
  * @param libraryRootPath Absolute path to the selected library.
  * @param address Candidate system ID, instance role and stable instance ID.
  * @param logger Shared main-process logger for load checkpoints and outcomes.
+ * @param operationId Optional correlation ID from the owning workflow.
  * @returns An editable or read-only sheet, or diagnostics for a rejected load.
  */
 export async function loadSavedInstance(
   libraryRootPath: string,
   address: unknown,
   logger: Logger,
+  operationId?: string,
 ): Promise<ValidationResult<OpenedInstance>> {
-  const log = createMainWorkflowLog(logger, 'instance.load');
+  const log = createMainWorkflowLog(logger, 'instance.load', { operationId });
 
   log.record({ step: 'sheet.open', outcome: 'started', level: 'info' });
   try {

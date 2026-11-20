@@ -1,4 +1,7 @@
-import { readAuthoredDefinitions } from '../../fixtures/rogue-trader-definitions';
+import {
+  readAuthoredDefinitions,
+  seedAuthoredDefinitions,
+} from '../../fixtures/rogue-trader-definitions';
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -10,15 +13,11 @@ import { loadSavedInstance } from '../../../src/main/instance-loader';
 import { LogService } from '../../../src/main/logging';
 
 const systemId = 'rogue-trader';
-const {
-  root: fixtures,
-  system: fixtureSystem,
-  archivePath,
-  templatePath,
-} = readAuthoredDefinitions();
-const system = `RPG_systems/${fixtureSystem.id}`;
-const manifest = `${system}/${archivePath}`;
-const template = `${system}/${templatePath}`;
+const definitions = readAuthoredDefinitions();
+const fixtures = definitions.root;
+let system: string;
+let manifest: string;
+let template: string;
 let root: string;
 
 // Write one fixture at its canonical path under the disposable library.
@@ -40,8 +39,7 @@ async function saveExample(name: string) {
 
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'rpg-buddy-instance-'));
-  await put(manifest, await readFile(new URL('system.json', fixtures)));
-  await put(template, await readFile(new URL(templatePath, fixtures)));
+  ({ system, manifest, template } = await seedAuthoredDefinitions(root, definitions));
 });
 
 afterEach(async () => {
@@ -89,6 +87,22 @@ test.each(['explorator', 'ork-freebooter'])(
     expect(await readFile(path.join(root, document))).toEqual(bytes);
   },
 );
+
+test('uses the caller operation ID for saved-sheet diagnostics', async () => {
+  const { address } = await saveExample('explorator');
+  const entries: LogInput[] = [];
+  const operationId = '28583553-2a40-4fed-8720-9f9fccb3b031';
+  const result = await loadSavedInstance(
+    root,
+    address,
+    { record: (entry) => entries.push(entry) },
+    operationId,
+  );
+
+  expect(result.success).toBe(true);
+  expect(entries.length).toBeGreaterThan(1);
+  expect(new Set(entries.map((entry) => entry.operationId))).toEqual(new Set([operationId]));
+});
 
 test.each([
   ['bad UTF-8', Buffer.from([0xff]), 'INVALID_JSON'],

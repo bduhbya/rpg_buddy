@@ -1,4 +1,7 @@
-import { readAuthoredDefinitions } from '../../fixtures/rogue-trader-definitions';
+import {
+  readAuthoredDefinitions,
+  seedAuthoredDefinitions,
+} from '../../fixtures/rogue-trader-definitions';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -11,15 +14,11 @@ import type { LogInput } from '../../../src/shared/logging-contract';
 
 vi.mock('node:fs/promises', { spy: true });
 
-const {
-  root: fixtures,
-  system: fixtureSystem,
-  archivePath,
-  templatePath,
-} = readAuthoredDefinitions();
-const system = `RPG_systems/${fixtureSystem.id}`;
-const manifest = `${system}/${archivePath}`;
-const template = `${system}/${templatePath}`;
+const definitions = readAuthoredDefinitions();
+const fixtures = definitions.root;
+let system: string;
+let manifest: string;
+let template: string;
 let root: string;
 let sheet: Instance;
 let directory: string;
@@ -28,14 +27,7 @@ let backup: string;
 
 beforeEach(async () => {
   root = await fs.mkdtemp(path.join(tmpdir(), 'rpg-buddy-save-'));
-  for (const [document, fixture] of [
-    [manifest, 'system.json'],
-    [template, templatePath],
-  ]) {
-    const file = path.join(root, document);
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.copyFile(new URL(fixture, fixtures), file);
-  }
+  ({ system, manifest, template } = await seedAuthoredDefinitions(root, definitions));
   sheet = JSON.parse(await fs.readFile(new URL('explorator.instance.json', fixtures), 'utf8'));
   directory = path.join(root, system, 'characters');
   target = path.join(directory, sheet.id + '.json');

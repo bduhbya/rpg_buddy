@@ -31,7 +31,10 @@ test('keyboard controls choose a library, preserve cancellation, and recover fro
   const load = panel.getByRole('button', { name: 'Load system' });
   await picker.focus();
   await page.keyboard.press('Enter');
-  await expect(panel.getByRole('status')).toHaveText(/Library folder selected.*game-library/);
+  await expect(panel.getByRole('status')).toHaveText('Library folder selected.');
+  await expect(
+    panel.getByText(`Library folder: ${await realpath(library)}`, { exact: true }),
+  ).toBeVisible();
   await expect(picker).toBeFocused();
   await expect(system).toHaveValue('');
   await expect(system.getByRole('option')).toHaveText([
@@ -134,7 +137,9 @@ test('relaunch restores the library folder and starts without a selected system'
       const page = await application.firstWindow();
       const panel = page.getByRole('region', { name: 'Game library' });
       const system = panel.getByRole('combobox', { name: 'Game system' });
-      await expect(panel.getByText('Library folder: remembered-library')).toBeVisible();
+      await expect(
+        panel.getByText(`Library folder: ${await realpath(library)}`, { exact: true }),
+      ).toBeVisible();
       await expect(system).toHaveValue('');
       await expect(panel.getByText(/^Active system:/)).toHaveCount(0);
       if (launch === 'initial') {

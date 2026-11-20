@@ -2,6 +2,15 @@
 
 Entries summarize development changes by date and may be updated before committing.
 
+## 2026-11-20
+
+- Added a desktop picker for saved character and monster sheets. Choices show the display name and stable ID. Opening shows stored statistics without recalculating or changing the file, explains read-only mode when a matching system or template version is unavailable, and reports invalid-file diagnostics.
+- Displayed the full library path in the operating system's native format. Listing and opening show progress and disable conflicting controls. Cancelling or rejecting a folder choice preserves the selected sheet and preview, and keyboard focus returns to the folder picker.
+
+## 2026-11-19
+
+- Added desktop creation of in-memory character and monster sheets from active templates. The form suggests an ID from the display name, accepts a custom ID, reports collisions, and previews initial values and calculated statistics.
+
 ## 2026-11-14
 
 - Added main-process saving for validated character and monster sheets. Saves preserve stored results, stage writes before replacement, and keep the previous valid revision as an overwrite backup. Documented manual recovery for interrupted saves.

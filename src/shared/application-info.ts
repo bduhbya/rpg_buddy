@@ -5,6 +5,7 @@ import type {
 } from './sheet-creation-contract';
 import type { LogInput, LogResult } from './logging-contract';
 import type { LibraryRequest, LibraryResult } from './library-selection';
+import type { SheetLoadingRequest, SheetLoadingResult } from './sheet-loading-contract';
 export const APPLICATION_INFO_API_VERSION = 1;
 export const APPLICATION_INFO_CHANNEL = 'application:get-info';
 
@@ -30,6 +31,7 @@ interface BridgeRequestOptions {
 }
 
 export interface ApplicationBridge {
+  sheetLoading(request: SheetLoadingRequest): Promise<SheetLoadingResult>;
   getSheetCreationOptions(): Promise<SheetCreationOptionsResult>;
   createCharacterSheet(request: SheetCreationRequest): Promise<SheetCreationResult>;
   getApplicationInfo(options?: BridgeRequestOptions): Promise<ApplicationInfoResult>;
