@@ -150,7 +150,10 @@ export class LogService implements Logger {
     try {
       fd = openSync(lock, 'wx');
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const { code } = error as NodeJS.ErrnoException;
+      // Windows can deny access while the previous writer's lock is being removed.
+      if (process.platform === 'win32' && code === 'EPERM') return undefined;
+      if (code !== 'EEXIST') throw error;
       // Only one contender may reclaim a stale writer at a time.
       let guard: number;
       try {

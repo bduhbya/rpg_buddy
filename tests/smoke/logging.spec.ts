@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import {
+import fs, {
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
+import { createRequire, syncBuiltinESMExports } from 'node:module';
 import { mock } from 'node:test';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import { LogService } from '../../src/main/logging';
@@ -585,6 +585,32 @@ test('logging IPC validates sender, frame, payload, rate and safe results', () =
   expect(handle(event, request)).toEqual({ ok: false, code: 'RATE_LIMITED' });
 });
 
+test('retries Windows writer-lock access denied during handoff', async () => {
+  test.skip(process.platform !== 'win32', 'Windows writer-lock behavior');
+  const lock = path.join(temporary, '.writer.lock');
+  const service = new LogService({ directory: temporary, metadata });
+  const open = fs.openSync;
+  const denied = mock.method(fs, 'openSync', (...args: Parameters<typeof open>) => {
+    if (args[0] === lock && args[1] === 'wx') {
+      throw Object.assign(new Error('Writer lock temporarily unavailable'), { code: 'EPERM' });
+    }
+    return open(...args);
+  });
+  syncBuiltinESMExports();
+  const record = input();
+  try {
+    service.record(record);
+    expect(denied.mock.callCount()).toBe(1);
+    expect(service.stats).toEqual({ written: 0, dropped: 0, failures: 0 });
+  } finally {
+    denied.mock.restore();
+    syncBuiltinESMExports();
+    await service.close();
+  }
+  expect(service.stats).toEqual({ written: 1, dropped: 0, failures: 0 });
+  expect(records().map((row) => row.operationId)).toEqual([record.operationId]);
+});
+
 test('independent processes coordinate rotation and recover a dead writer', async () => {
   test.setTimeout(60000);
   const require = createRequire(import.meta.url);
@@ -622,7 +648,7 @@ test('independent processes coordinate rotation and recover a dead writer', asyn
       child.on('error', reject);
       child.on('exit', (code) => (code === 0 ? resolve() : reject(Error(errors))));
     });
-    return { pid, stats: JSON.parse(output) as { written: number; dropped: number } };
+    return { pid, stats: JSON.parse(output) as LogService['stats'] };
   }
   const directory = path.join(temporary, 'logs');
   const results = await Promise.all([
@@ -630,7 +656,9 @@ test('independent processes coordinate rotation and recover a dead writer', asyn
     worker(directory, 5 * 1024 * 1024, 30),
     worker(directory, 5 * 1024 * 1024, 30),
   ]);
-  expect(results.map((row) => row.stats.written)).toEqual([30, 30, 30]);
+  expect(results.map((row) => row.stats)).toEqual(
+    Array.from({ length: 3 }, () => ({ written: 30, dropped: 0, failures: 0 })),
+  );
   expect(records(directory)).toHaveLength(90);
   expect(new Set(records(directory).map((row) => row.operationId)).size).toBe(90);
   writeFileSync(path.join(directory, '.writer.lock'), String(results[0]!.pid));
