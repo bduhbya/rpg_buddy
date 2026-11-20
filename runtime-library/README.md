@@ -7,11 +7,11 @@ This directory is the maintained seed content for a user-selected library. It is
 ```text
 RPG_systems/rogue-trader/
   system.json
-  manifests/1.0.1/system.json
-  templates/creature-core/1.0.1/template.json
+  manifests/<system-version>/system.json
+  templates/creature-core/<template-version>/template.json
 ```
 
-The active manifest matches the `1.0.1` archive. The definitions declare `schemaVersion: 2`. See the [versioning policy](../data_contracts/README.md#versioning-and-change-history).
+The active [manifest](RPG_systems/rogue-trader/system.json) matches its exact archive and declares the template revision. The definitions declare `schemaVersion: 2`. See the [versioning policy](../data_contracts/README.md#versioning-and-change-history).
 
 ## Supported scope
 
@@ -23,7 +23,7 @@ The [approved source review](../specs/2026-10-28_source-review-scope/source-revi
 
 ## Representative instances and verification
 
-The [Explorator](../data_contracts/examples/v2/explorator.instance.json) and [Ork Freebooter](../data_contracts/examples/v2/ork-freebooter.instance.json) are complete v2 verification fixtures. Both reference creature-core `1.0.1`. The Ork owns its explicit Unnatural Toughness x2 snapshot, citing printed pp. 368 and 377. Calculations use that effect independently of its name or role.
+The [Explorator](../data_contracts/examples/v2/explorator.instance.json) and [Ork Freebooter](../data_contracts/examples/v2/ork-freebooter.instance.json) are complete v2 verification fixtures. Both reference the exact creature-core revision in the [example manifest](../data_contracts/examples/v2/system.json). The Ork owns its explicit Unnatural Toughness x2 snapshot, citing printed pp. 368 and 377. Calculations use that effect independently of its name or role.
 
 Expected example results: Explorator SB4/TB3/AB3; Ork SB5/TB8/AB3. Both have movement3/6/9/18. Editing Ork Toughness to49 retains TB8;50 produces TB10. No complete character legality, combat automation or full bestiary is implied.
 

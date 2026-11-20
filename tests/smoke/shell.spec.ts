@@ -143,7 +143,9 @@ test('bridge isolates child frames and blocks navigation and popups', async ({
   ).toEqual({ require: 'undefined', process: 'undefined' });
 
   expect(await page.evaluate(() => Object.keys(window.rpgBuddy).sort())).toEqual([
+    'createCharacterSheet',
     'getApplicationInfo',
+    'getSheetCreationOptions',
     'librarySelection',
     'recordLog',
   ]);

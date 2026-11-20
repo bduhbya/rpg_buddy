@@ -1,3 +1,8 @@
+import type {
+  SheetCreationOptionsResult,
+  SheetCreationRequest,
+  SheetCreationResult,
+} from './sheet-creation-contract';
 import type { LogInput, LogResult } from './logging-contract';
 import type { LibraryRequest, LibraryResult } from './library-selection';
 export const APPLICATION_INFO_API_VERSION = 1;
@@ -25,6 +30,8 @@ interface BridgeRequestOptions {
 }
 
 export interface ApplicationBridge {
+  getSheetCreationOptions(): Promise<SheetCreationOptionsResult>;
+  createCharacterSheet(request: SheetCreationRequest): Promise<SheetCreationResult>;
   getApplicationInfo(options?: BridgeRequestOptions): Promise<ApplicationInfoResult>;
   recordLog(input: LogInput): Promise<LogResult>;
   librarySelection(request: LibraryRequest, options?: BridgeRequestOptions): Promise<LibraryResult>;

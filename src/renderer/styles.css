@@ -69,3 +69,33 @@ button[aria-disabled='true'] {
 #library-heading ~ [role='status']:empty {
   margin: 0;
 }
+
+#sheet-creation-heading ~ form fieldset {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 30rem;
+}
+
+#sheet-creation-heading ~ form input {
+  font: inherit;
+  width: 100%;
+}
+
+#sheet-creation-heading ~ form input:focus-visible {
+  outline: 3px solid #245f87;
+  outline-offset: 3px;
+}
+
+#sheet-creation-heading ~ form button {
+  justify-self: start;
+  margin-top: 0.5rem;
+}
+
+#creation-error:not(:empty) {
+  color: #8b2821;
+}
+
+#sheet-creation-heading ~ [role='status']:empty,
+#creation-error:empty {
+  margin: 0;
+}

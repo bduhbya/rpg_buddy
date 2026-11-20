@@ -10,6 +10,12 @@ import { installDiagnosticsMenu } from './menu';
 import { LIBRARY_SELECTION_CHANNEL } from '../shared/library-selection';
 import { createLibraryHandler } from './library-ipc';
 import { LibrarySelection } from './library-selection';
+import {
+  CREATE_CHARACTER_SHEET_CHANNEL,
+  SHEET_CREATION_OPTIONS_CHANNEL,
+} from '../shared/sheet-creation-contract';
+import { createSheetCreationHandlers } from './sheet-creation-ipc';
+import { createSheetWorkflow } from './sheet-creation-workflow';
 import { createMainWorkflowLog } from './workflow-log';
 
 const logging = new LogService({
@@ -48,6 +54,14 @@ let mainWindow: BrowserWindow | undefined;
 // Compare the same canonical URL Chromium uses, never a prefix or origin alone.
 const trustedDocument = new URL(MAIN_WINDOW_WEBPACK_ENTRY).href;
 const librarySelection = new LibrarySelection(app.getPath('userData'), logging);
+const sheetCreation = createSheetCreationHandlers(
+  () => mainWindow?.webContents,
+  trustedDocument,
+  createSheetWorkflow(librarySelection, logging),
+  logging,
+);
+ipcMain.handle(SHEET_CREATION_OPTIONS_CHANNEL, sheetCreation.handleGetSheetCreationOptions);
+ipcMain.handle(CREATE_CHARACTER_SHEET_CHANNEL, sheetCreation.handleCreateCharacterSheet);
 ipcMain.handle(
   LIBRARY_SELECTION_CHANNEL,
   createLibraryHandler(

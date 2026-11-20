@@ -3,11 +3,9 @@ import { loadFixtures } from './fixtures';
 
 test('both instance roles reference the same exact manifest and creature template', () => {
   const { manifest, template, character, monster } = loadFixtures();
-  expect({ id: manifest.id, version: manifest.version }).toEqual({
-    id: 'rogue-trader',
-    version: '1.0.1',
-  });
-  expect(manifest.templates).toEqual([{ id: 'creature-core', version: '1.0.1' }]);
+  expect(manifest.id).toBe('rogue-trader');
+  expect(template.id).toBe('creature-core');
+  expect(manifest.templates).toEqual([{ id: template.id, version: template.version }]);
   expect(template.system).toEqual({ id: manifest.id, version: manifest.version });
   for (const instance of [character, monster]) {
     expect(instance.system).toEqual(template.system);

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdir, open, realpath, rename, unlink } from 'node:fs/promises';
+import { mkdir, open, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import type { DiagnosticCode } from '../domain/definitions/diagnostics';
 import type { Instance } from '../domain/definitions/document-models';
@@ -9,11 +9,10 @@ import type { ValidationResult } from '../domain/instances/structural-validation
 import { validateInstanceSnapshot } from '../domain/instances/validate-instance-snapshot';
 import type { Logger } from '../shared/logging-contract';
 import { loadExactDefinitions } from './definition-loader';
+import { inspectLibraryEntry, isPortableSlug } from './library-entries';
 import { readLibraryJsonWithBytes, resolveLibraryRoot } from './library-json';
 import { savedInstancePath } from './library-paths';
 import { createMainWorkflowLog } from './workflow-log';
-
-const WINDOWS_DEVICE_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
 // Use the shared diagnostic shape for persistence failures without leaking OS error text.
 function failure(
@@ -27,37 +26,20 @@ function failure(
   };
 }
 
-// Inspect a path without following links, distinguishing missing entries from other errors.
-async function inspect(root: string, relative: string, kind: 'directory' | 'file') {
-  const file = path.join(root, relative);
-  const info = await lstat(file).catch((error: NodeJS.ErrnoException) => {
-    if (error.code !== 'ENOENT') throw error;
-  });
-  if (!info) return 'missing';
-  const expectedType = kind === 'directory' ? info.isDirectory() : info.isFile();
-  if (!expectedType) return 'unsafe';
-  const exactPath =
-    path
-      .relative(root, await realpath(file))
-      .split(path.sep)
-      .join('/') === relative;
-  return exactPath ? 'present' : 'unsafe';
-}
-
 // Require ordinary system directories and create only the role directory when absent.
 async function prepareDirectory(root: string, document: string): Promise<boolean> {
   const [systems, system, role] = document.split('/');
   const systemDirectory = systems + '/' + system;
   const directory = systemDirectory + '/' + role;
   for (const parent of [systems, systemDirectory]) {
-    if ((await inspect(root, parent, 'directory')) !== 'present') return false;
+    if ((await inspectLibraryEntry(root, parent, 'directory')) !== 'present') return false;
   }
-  if ((await inspect(root, directory, 'directory')) === 'missing') {
+  if ((await inspectLibraryEntry(root, directory, 'directory')) === 'missing') {
     await mkdir(path.join(root, directory)).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== 'EEXIST') throw error;
     });
   }
-  return (await inspect(root, directory, 'directory')) === 'present';
+  return (await inspectLibraryEntry(root, directory, 'directory')) === 'present';
 }
 
 // Create a private sibling, track it only after exclusive creation, then flush before publication.
@@ -122,7 +104,7 @@ export async function saveInstance(
 
     // Both IDs become path components. Apply Windows device-name rules on every platform
     // so a library can be moved to Windows with its IDs intact.
-    if ([sheet.system.id, sheet.id].some((id) => WINDOWS_DEVICE_NAME.test(id))) {
+    if ([sheet.system.id, sheet.id].some((id) => !isPortableSlug(id))) {
       return log.diagnosticFailure(failure(document, 'Use a portable system and sheet ID.'), step);
     }
     document = savedInstancePath(sheet.system.id, sheet.role, sheet.id);
@@ -172,8 +154,8 @@ export async function saveInstance(
     }
 
     step = 'target.inspect';
-    const primaryState = await inspect(root.value, document, 'file');
-    const backupState = await inspect(root.value, backupDocument, 'file');
+    const primaryState = await inspectLibraryEntry(root.value, document, 'file');
+    const backupState = await inspectLibraryEntry(root.value, backupDocument, 'file');
     if (primaryState === 'unsafe' || backupState === 'unsafe') {
       return log.diagnosticFailure(
         failure(document, 'Use ordinary files with canonical names.'),

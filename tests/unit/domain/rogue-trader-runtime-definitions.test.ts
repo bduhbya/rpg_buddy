@@ -1,3 +1,4 @@
+import { readRuntimeDefinitions } from '../../fixtures/rogue-trader-definitions';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { calculateWithEntries } from '../../../src/domain/calculation/calculate-with-entries';
@@ -9,13 +10,11 @@ import { resolveDefinitions } from '../../../src/domain/definition-processing/re
 import { entryFixture, multiplyEffect } from './effect-fixtures';
 import { loadFixtures } from './fixtures';
 
-const root = '../../../runtime-library/RPG_systems/rogue-trader/';
-const templatePath = 'templates/creature-core/1.0.1/template.json';
-const archivePath = 'manifests/1.0.1/system.json';
+const { root, system, template, templatePath, archivePath } = readRuntimeDefinitions();
 
 // Test-only file access. Unknown JSON must cross the production validation boundary.
 function readRuntime(path: string): unknown {
-  return JSON.parse(readFileSync(new URL(root + path, import.meta.url), 'utf8'));
+  return JSON.parse(readFileSync(new URL(path, root), 'utf8'));
 }
 
 function runtimeCatalog() {
@@ -111,10 +110,7 @@ describe('Rogue Trader runtime definitions', () => {
 
   it('creates independent blank sheets for both roles with final results and presentation', () => {
     const catalog = runtimeCatalog();
-    const references = {
-      system: { id: 'rogue-trader', version: '1.0.1' },
-      template: { id: 'creature-core', version: '1.0.1' },
-    };
+    const references = { system, template };
     const defaults = {
       weaponSkill: 0,
       ballisticSkill: 0,

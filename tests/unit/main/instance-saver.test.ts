@@ -1,3 +1,4 @@
+import { readAuthoredDefinitions } from '../../fixtures/rogue-trader-definitions';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -10,10 +11,15 @@ import type { LogInput } from '../../../src/shared/logging-contract';
 
 vi.mock('node:fs/promises', { spy: true });
 
-const fixtures = new URL('../../../data_contracts/examples/v2/', import.meta.url);
-const system = 'RPG_systems/rogue-trader';
-const manifest = system + '/manifests/1.0.1/system.json';
-const template = system + '/templates/creature-core/1.0.1/template.json';
+const {
+  root: fixtures,
+  system: fixtureSystem,
+  archivePath,
+  templatePath,
+} = readAuthoredDefinitions();
+const system = `RPG_systems/${fixtureSystem.id}`;
+const manifest = `${system}/${archivePath}`;
+const template = `${system}/${templatePath}`;
 let root: string;
 let sheet: Instance;
 let directory: string;
@@ -24,7 +30,7 @@ beforeEach(async () => {
   root = await fs.mkdtemp(path.join(tmpdir(), 'rpg-buddy-save-'));
   for (const [document, fixture] of [
     [manifest, 'system.json'],
-    [template, 'templates/creature-core/1.0.1/template.json'],
+    [template, templatePath],
   ]) {
     const file = path.join(root, document);
     await fs.mkdir(path.dirname(file), { recursive: true });

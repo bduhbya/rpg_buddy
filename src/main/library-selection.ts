@@ -246,6 +246,15 @@ export class LibrarySelection {
   }
 
   /**
+   * Access the current library and loaded system for a main-process workflow.
+   * @returns The active root, system and selection revision, or undefined during replacement.
+   */
+  getCreationContext() {
+    if (!this.library || !this.active) return undefined;
+    return { root: this.library.root, system: this.active, revision: this.generation };
+  }
+
+  /**
    * Access the active catalog from the main process.
    * @returns The current catalog, or undefined during replacement or after rejection.
    */
