@@ -19,6 +19,8 @@ import { createSheetWorkflow } from './sheet-creation-workflow';
 import { SHEET_LOADING_CHANNEL } from '../shared/sheet-loading-contract';
 import { createSheetLoadingHandler } from './sheet-loading-ipc';
 import { createSheetLoadingWorkflow } from './sheet-loading-workflow';
+import { SHEET_EDITING_CHANNEL } from '../shared/sheet-editing-contract';
+import { createSheetEditing, createSheetEditingHandler } from './sheet-editing';
 import { createMainWorkflowLog } from './workflow-log';
 
 const logging = new LogService({
@@ -57,10 +59,11 @@ let mainWindow: BrowserWindow | undefined;
 // Compare the same canonical URL Chromium uses, never a prefix or origin alone.
 const trustedDocument = new URL(MAIN_WINDOW_WEBPACK_ENTRY).href;
 const librarySelection = new LibrarySelection(app.getPath('userData'), logging);
+const sheetEditing = createSheetEditing(librarySelection, logging);
 const sheetCreation = createSheetCreationHandlers(
   () => mainWindow?.webContents,
   trustedDocument,
-  createSheetWorkflow(librarySelection, logging),
+  createSheetWorkflow(librarySelection, logging, sheetEditing),
   logging,
 );
 ipcMain.handle(SHEET_CREATION_OPTIONS_CHANNEL, sheetCreation.handleGetSheetCreationOptions);
@@ -70,7 +73,16 @@ ipcMain.handle(
   createSheetLoadingHandler(
     () => mainWindow?.webContents,
     trustedDocument,
-    createSheetLoadingWorkflow(librarySelection, logging),
+    createSheetLoadingWorkflow(librarySelection, logging, sheetEditing),
+    logging,
+  ),
+);
+ipcMain.handle(
+  SHEET_EDITING_CHANNEL,
+  createSheetEditingHandler(
+    () => mainWindow?.webContents,
+    trustedDocument,
+    sheetEditing.apply,
     logging,
   ),
 );

@@ -208,6 +208,13 @@ export function SheetLoadingPanel({
                 viewSheet(
                   {
                     sheet: opened.sheet,
+                    editHandle: opened.mode === 'editable' ? opened.editHandle : undefined,
+                    modifierTargets:
+                      opened.mode === 'editable' ? opened.modifierTargets : undefined,
+                    onEdit:
+                      opened.mode === 'editable'
+                        ? (result) => setOpened({ ...opened, ...result })
+                        : undefined,
                     readOnlyDetails:
                       opened.mode === 'read-only'
                         ? opened.diagnostics.map(formatDiagnostic)

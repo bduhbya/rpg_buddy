@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { INSTANCE_ROLES } from '../domain/definitions/document-models';
-import type { Instance, InstanceRole } from '../domain/definitions/document-models';
+import type { InstanceRole } from '../domain/definitions/document-models';
 import type { LibraryView } from '../shared/library-selection';
 import type {
   SheetCreationOptions,
@@ -50,10 +50,16 @@ export function SheetCreationPanel({
   const [manualId, setManualId] = useState<string>();
   const [failure, setFailure] = useState<Extract<SheetCreationResult, { ok: false }>>();
   const [optionsIssue, setOptionsIssue] = useState('');
-  const [sheet, setSheet] = useState<Instance>();
+  const [created, setCreated] = useState<Extract<SheetCreationResult, { ok: true }>>();
+  const sheet = created?.sheet;
   const [successMessage, setSuccessMessage] = useState('');
   const form = useRef<HTMLFormElement>(null);
   const viewButton = useRef<HTMLButtonElement>(null);
+
+  // Main invalidates edit handles when the active selection revision changes.
+  useEffect(() => {
+    setCreated(undefined);
+  }, [activeSystem.selectionRevision]);
 
   // Restore keyboard context after the pending submission temporarily disables the form.
   useEffect(() => {
@@ -117,7 +123,7 @@ export function SheetCreationPanel({
     });
     if (!result) return;
     if (result.ok) {
-      setSheet(result.sheet);
+      setCreated(result);
       setSuccessMessage(`Created ${result.sheet.displayName}.`);
     } else {
       setFailure(result);
@@ -184,7 +190,16 @@ export function SheetCreationPanel({
               <button
                 ref={viewButton}
                 type="button"
-                onClick={(event) => viewSheet({ sheet }, event.currentTarget)}
+                onClick={(event) => {
+                  if (!created) return;
+                  viewSheet(
+                    {
+                      ...created,
+                      onEdit: (result) => setCreated({ ...created, ...result }),
+                    },
+                    event.currentTarget,
+                  );
+                }}
               >
                 View sheet
               </button>

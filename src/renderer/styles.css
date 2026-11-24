@@ -111,8 +111,41 @@ button[aria-disabled='true'] {
   padding: clamp(1rem, 4vw, 3rem);
 }
 
-.sheet-page > button {
+.sheet-page__actions,
+.sheet-page__edit-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sheet-page__actions {
   margin-bottom: 1.25rem;
+}
+
+.sheet-page__actions--sticky {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: block;
+  padding-block: 0.5rem;
+  background: #f5f3ef;
+  border-bottom: 1px solid #cbc2b4;
+}
+
+.sheet-page__edit-buttons button {
+  padding-inline: 0.6em;
+}
+
+.sheet-page__edit-feedback {
+  flex-basis: 100%;
+}
+
+.sheet-page__feedback:empty {
+  margin: 0;
+}
+
+.sheet-page__error {
+  color: #8b2821;
 }
 
 .sheet-page__read-only {

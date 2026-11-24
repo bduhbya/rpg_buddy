@@ -13,6 +13,7 @@ import type {
 import { inspectLibraryEntry, isPortableSlug } from './library-entries';
 import { savedInstancePath } from './library-paths';
 import type { LibrarySelection } from './library-selection';
+import type { createSheetEditing } from './sheet-editing';
 import { createMainWorkflowLog } from './workflow-log';
 
 const REQUEST_DOCUMENT = 'sheet creation request';
@@ -66,11 +67,13 @@ async function inspectDestination(root: string, document: string) {
  * Bind sheet creation to the current library selection and this application's launch.
  * @param selection Supplies the authoritative root, system and revision.
  * @param logger Shared main-process logger for creation outcomes.
+ * @param editing Registers the successful snapshot for editing.
  * @returns Methods for listing exact template choices and creating complete in-memory sheets.
  */
 export function createSheetWorkflow(
   selection: Pick<LibrarySelection, 'getCreationContext'>,
   logger: Logger,
+  editing: Pick<ReturnType<typeof createSheetEditing>, 'register'>,
 ): SheetCreationWorkflow {
   // Remember successful in-memory creations by library destination for this launch.
   const createdDestinations = new Set<string>();
@@ -178,6 +181,14 @@ export function createSheetWorkflow(
 
       // Keep the collision check, snapshot creation, and ID registration in one synchronous turn.
       step = 'sheet.build';
+      const definition = catalog.getTemplate(manifest.id, template, {
+        document: REQUEST_DOCUMENT,
+        pointer: '/template',
+      });
+      if (!definition.success) {
+        const { code, message } = definition.diagnostics[0];
+        return reject(code, message);
+      }
       const result = createInstance(
         catalog,
         { system: { id: manifest.id, version: manifest.version }, template, role: request.role },
@@ -189,9 +200,15 @@ export function createSheetWorkflow(
         return reject(code, message);
       }
       const sheet = { ...result.value, displayName: request.displayName.trim() };
+      const editHandle = editing.register('created', sheet, catalog, active.revision);
       createdDestinations.add(destinationKey);
       log.outcome({ step, level: 'info', outcome: 'succeeded' });
-      return { ok: true, sheet };
+      return {
+        ok: true,
+        sheet,
+        editHandle,
+        modifierTargets: definition.value.value.modifierTargets,
+      };
     } catch (error) {
       if (
         step === 'destination.inspect' &&

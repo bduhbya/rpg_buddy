@@ -100,6 +100,8 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   ).toHaveText('SB0');
 
   await page.keyboard.press('Shift+Tab');
+  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await expect(back).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(view).toBeFocused();
@@ -128,6 +130,173 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   await expect(role).toHaveValue('monster');
   await expect(id).toHaveValue('void-beast');
 
+  // Verify that Apply and Done submit shared drafts from the sheet's edit bar.
+  await view.press('Enter');
+  const edit = page.getByRole('button', { name: 'Edit', exact: true });
+  const done = page.getByRole('button', { name: 'Done', exact: true });
+  const actions = page.getByRole('group', { name: 'Sheet editing actions' });
+  const apply = actions.getByRole('button', { name: 'Apply edits' });
+  const discard = actions.getByRole('button', { name: 'Discard edits' });
+  const movement = monster.getByText('Half Move', { exact: true }).locator('..');
+  const labels = await monster.locator('dt').allTextContents();
+  await edit.press('Enter');
+  await expect(done).toBeFocused();
+  await expect(monster.locator('dt')).toHaveText(labels);
+  const agility = monster.getByRole('textbox', { name: 'Agility', exact: true });
+  const strength = monster.getByRole('textbox', { name: 'Strength', exact: true });
+  await agility.fill('42');
+  await monster.getByRole('textbox', { name: 'Career path' }).fill('Voidfarer');
+  await expect(movement).toHaveText(/Half Move0/);
+  await expect(monster.getByRole('button', { name: /^Apply/ })).toHaveCount(0);
+  await apply.press('Enter');
+  await expect(movement).toHaveText(/Half Move4/);
+  await expect(apply).toBeFocused();
+  await expect(apply).toHaveAttribute('aria-disabled', 'true');
+
+  const viewport = await page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
+  await page.setViewportSize({ width: 360, height: 720 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await monster.getByRole('group', { name: 'Add rulebook entries' }).scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  for (const button of [done, apply, discard]) {
+    await expect(button).toBeInViewport({ ratio: 1 });
+  }
+  await page.setViewportSize(viewport);
+
+  const toughness = monster.getByRole('textbox', { name: 'Toughness', exact: true });
+  await toughness.fill('26');
+  await strength.fill('-1');
+  await agility.fill('55');
+  const addEntry = monster.getByRole('group', { name: 'Add rulebook entries' });
+  const category = addEntry.getByRole('combobox', { name: 'Category' });
+  const choices = addEntry.getByRole('combobox', { name: 'Rulebook entry' });
+  const options = addEntry.getByRole('listbox', { name: 'Rulebook matches' }).getByRole('option');
+  const stage = addEntry.getByRole('button', { name: 'Stage entry' });
+  await expect(category.getByRole('option')).toHaveText(['Traits', 'Talents']);
+  await category.selectOption('talent');
+  await choices.press('ArrowDown');
+  await expect(addEntry.getByRole('status')).toHaveText('No matching entries');
+  await choices.press('Escape');
+  await expect(choices).toHaveAttribute('aria-expanded', 'false');
+  await category.selectOption('trait');
+  await choices.press('ArrowDown');
+  await expect(options).toHaveText([
+    'Unnatural Strength (x2) Doubles Strength Bonus',
+    'Unnatural Toughness (x2) Doubles Toughness Bonus',
+  ]);
+  await choices.press('ArrowDown');
+  await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true');
+  await choices.press('ArrowUp');
+  await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+  await choices.fill('  tOuGhNeSs ');
+  await expect(options).toHaveText(['Unnatural Toughness (x2) Doubles Toughness Bonus']);
+  await choices.fill('strength');
+  await expect(options).toHaveText(['Unnatural Strength (x2) Doubles Strength Bonus']);
+  await choices.press('Enter');
+  await expect(choices).toHaveValue('Unnatural Strength (x2)');
+  await expect(addEntry.getByRole('list', { name: 'Pending rulebook entries' })).toHaveCount(0);
+  await stage.press('Enter');
+  const pendingTrait = addEntry.getByRole('list', { name: 'Pending rulebook entries' });
+  await expect(pendingTrait).toContainText(
+    'Strength 45 gives a base bonus of 4 and a modified bonus of 8',
+  );
+  await expect(pendingTrait).toContainText('printed p. 368');
+  await expect(choices).toBeFocused();
+  await done.press('Enter');
+  await expect(page.locator('#sheet-edit-error')).toContainText('Strength');
+  await expect(strength).toBeFocused();
+  await expect(
+    monster.getByTitle('Toughness Bonus', { exact: true }).locator('xpath=../../dd'),
+  ).toHaveText('2');
+  await expect(toughness).toHaveValue('26');
+  await expect(agility).toHaveValue('55');
+  await expect(addEntry.getByRole('list', { name: 'Pending rulebook entries' })).toContainText(
+    'Unnatural Strength (x2)',
+  );
+  await expect(movement).toHaveText(/Half Move4/);
+  await strength.fill('45');
+  await done.press('Enter');
+  await expect(edit).toBeFocused();
+  await expect(movement).toHaveText(/Half Move5/);
+  await expect(
+    monster.getByTitle('Strength Bonus', { exact: true }).locator('xpath=../..'),
+  ).toHaveText('SB8');
+  await expect(monster.getByRole('heading', { name: 'Unnatural Strength (x2)' })).toBeVisible();
+
+  await edit.press('Enter');
+  await choices.click();
+  await expect(options).toHaveText(['Unnatural Toughness (x2) Doubles Toughness Bonus']);
+  await choices.press('Escape');
+  const trait = monster.getByRole('heading', { name: 'Unnatural Strength (x2)' });
+  const removeTrait = monster.getByRole('button', { name: 'Remove Unnatural Strength (x2)' });
+  await removeTrait.click();
+  await expect(
+    monster.getByRole('button', { name: 'Undo removal of Unnatural Strength (x2)' }),
+  ).toBeVisible();
+  await expect(
+    monster.getByTitle('Strength Bonus', { exact: true }).locator('xpath=../../dd'),
+  ).toHaveText('8');
+  await discard.click();
+  await expect(removeTrait).toBeVisible();
+  await removeTrait.click();
+  await apply.click();
+  await expect(trait).toHaveCount(0);
+  await expect(apply).toBeFocused();
+  await choices.click();
+  await expect(options).toHaveText([
+    'Unnatural Strength (x2) Doubles Strength Bonus',
+    'Unnatural Toughness (x2) Doubles Toughness Bonus',
+  ]);
+  await choices.press('Escape');
+  await expect(
+    monster.getByTitle('Strength Bonus', { exact: true }).locator('xpath=../../dd'),
+  ).toHaveText('4');
+  await expect(choices).toBeFocused();
+  await monster.getByRole('textbox', { name: 'Agility', exact: true }).fill('65');
+  await discard.click();
+  await expect(agility).toHaveValue('55');
+  await expect(done).toBeVisible();
+  await done.click();
+  await expect(movement).toHaveText(/Half Move5/);
+  await expect(monster.getByText('Voidfarer', { exact: true })).toBeVisible();
+  await back.press('Enter');
+  await view.press('Enter');
+  await expect(movement).toHaveText(/Half Move5/);
+  await back.press('Enter');
+
+  // Reloading the same system invalidates the prior creation result and its edit handle.
+  await load.press('Enter');
+  await expect(view).toHaveCount(0);
+  await expect(template).toBeEnabled();
+
   const invalid = await page.evaluate(() => window.rpgBuddy.createCharacterSheet({} as never));
   expect(invalid).toMatchObject({ ok: false, code: 'INVALID_REQUEST' });
+
+  // Exercise the live preload and main bridge before the edit controls are added.
+  const bridgeEdit = await page.evaluate(async (template) => {
+    const options = await window.rpgBuddy.getSheetCreationOptions();
+    if (!options.ok || !options.options) throw new Error('Expected creation options');
+    const created = await window.rpgBuddy.createCharacterSheet({
+      template,
+      selectionRevision: options.options.selectionRevision,
+      role: 'character',
+      id: 'bridge-edit-check',
+      displayName: 'Bridge Edit Check',
+    });
+    if (!created.ok) throw new Error(created.message);
+    return window.rpgBuddy.editSheet({
+      ...created.editHandle,
+      operation: ['set-value', 'agility', 42],
+    });
+  }, templateReference);
+  expect(bridgeEdit).toMatchObject({
+    ok: true,
+    sheet: { values: { agility: 42 }, derived: { halfMove: 4, runMove: 24 } },
+    editHandle: { revision: 1 },
+  });
 });

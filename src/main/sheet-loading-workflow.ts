@@ -14,6 +14,7 @@ import { inspectLibraryEntry, isPortableSlug } from './library-entries';
 import { readLibraryJson } from './library-json';
 import { savedInstanceDirectory } from './library-paths';
 import type { LibrarySelection } from './library-selection';
+import type { createSheetEditing } from './sheet-editing';
 import { createMainWorkflowLog } from './workflow-log';
 
 const PRIMARY_EXTENSION = '.json';
@@ -59,11 +60,13 @@ async function listSheets(
  * Bind sheet discovery and opening to the authoritative library selection.
  * @param selection Supplies the current root, system, and selection revision.
  * @param logger Shared main-process workflow logger.
+ * @param editing Tracks the latest successful opening.
  * @returns A handler for validated sheet loading requests.
  */
 export function createSheetLoadingWorkflow(
   selection: Pick<LibrarySelection, 'getCreationContext' | 'tryLockSheetOpen'>,
   logger: Logger,
+  editing: Pick<ReturnType<typeof createSheetEditing>, 'register' | 'clearOpened'>,
 ): SheetLoadingWorkflow {
   // Check the selection before and after asynchronous filesystem operations.
   return async function requestSheet(request: SheetLoadingRequest): Promise<SheetLoadingResult> {
@@ -126,9 +129,30 @@ export function createSheetLoadingWorkflow(
             }
             // The bridge sends the snapshot and any read-only diagnostics. Definitions stay in main.
             const { mode, sheet } = result.value;
-            return mode === 'read-only'
-              ? { ok: true, action: 'open', mode, sheet, diagnostics: result.value.diagnostics }
-              : { ok: true, action: 'open', mode, sheet };
+            if (mode === 'read-only') {
+              editing.clearOpened();
+              return {
+                ok: true,
+                action: 'open',
+                mode,
+                sheet,
+                diagnostics: result.value.diagnostics,
+              };
+            }
+            const editHandle = editing.register(
+              'opened',
+              sheet,
+              result.value.definitions.catalog,
+              active.revision,
+            );
+            return {
+              ok: true,
+              action: 'open',
+              mode,
+              sheet,
+              editHandle,
+              modifierTargets: result.value.definitions.template.value.modifierTargets,
+            };
           } finally {
             release();
           }

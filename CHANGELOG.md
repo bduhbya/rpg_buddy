@@ -6,6 +6,8 @@ Entries summarize development changes by date and may be updated before committi
 
 - Added a shared, full-window Rogue Trader sheet for newly created and loaded characters and monsters. The centered layout shows identity, characteristics and bonuses, entries, and stored movement values. Read-only sheets use the same layout and explain when exact definitions are unavailable.
 - Replaced inline previews with a **View sheet** button inside each creation or loading form. **Back to main page** restores the form and keyboard focus to the button that opened the sheet.
+- Added in-place editing for newly created and editable loaded sheets. A sticky bar lets users apply pending edits, finish editing, or discard drafts. Accepted mechanical changes update derived statistics, and rejected edits keep the remaining drafts available for correction.
+- Added a searchable rulebook picker with Traits and Talents filters. The initial choices are Unnatural Strength and Unnatural Toughness. Results summarize their effects, and staged traits show the full description, a worked example, and the rulebook citation before the edits are applied.
 
 ## 2026-11-20
 

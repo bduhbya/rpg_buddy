@@ -1,4 +1,5 @@
 import type { ResolvedDefinitions } from '../domain/definition-processing/resolve-definitions';
+import type { InMemoryDefinitionCatalog } from '../domain/definition-processing/in-memory-definition-catalog';
 import type { Diagnostic } from '../domain/definitions/diagnostics';
 import { INSTANCE_ROLES } from '../domain/definitions/document-models';
 import type { Instance, InstanceRole } from '../domain/definitions/document-models';
@@ -19,7 +20,11 @@ interface InstanceAddress {
 }
 
 export type OpenedInstance =
-  | { mode: 'editable'; sheet: Instance; definitions: ResolvedDefinitions }
+  | {
+      mode: 'editable';
+      sheet: Instance;
+      definitions: ResolvedDefinitions & { catalog: InMemoryDefinitionCatalog };
+    }
   | { mode: 'read-only'; sheet: Instance; diagnostics: [Diagnostic, ...Diagnostic[]] };
 
 /**

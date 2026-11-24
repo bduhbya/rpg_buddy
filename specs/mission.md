@@ -30,9 +30,11 @@ The milestone proves a representative, explicitly specified subset of the base g
 - Keep system-specific mechanics out of generic application code wherever the declarative model can reasonably express them.
 - Prefer a small, verifiable working slice over broad unfinished functionality.
 
-Career/class and selected skills, talents, traits and custom entries are user-directed using the rulebook and GM judgment. The application validates data and explicitly supported calculations without enforcing complete character legality. Characters and monsters share creature sheet structure; their roles and chosen features belong to instances.
+Career/class and selected skills, talents, and traits are user-directed using the rulebook and GM judgment. The first milestone sheet editor offers the reviewed rulebook entries implemented by the application. The application validates data and explicitly supported calculations without enforcing complete character legality. Characters and monsters share creature sheet structure; their roles and chosen features belong to instances.
 
 ## Future scope
+
+A separate authoring workflow may let users create traits and effects, publish them to a local feature library, and select those library entries while editing a sheet.
 
 Later milestones may add NPC libraries, campaigns, encounter participants, initiative tracking, virtual dice, equipment and consumable effects, temporary effects, visual sheet customization, and sharing/import conflict handling. These remain part of the product vision but are outside the first functional milestone.
 

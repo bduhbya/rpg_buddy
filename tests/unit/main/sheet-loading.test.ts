@@ -17,6 +17,7 @@ import type { Instance } from '../../../src/domain/definitions/document-models';
 import { LibrarySelection } from '../../../src/main/library-selection';
 import { createSheetLoadingHandler } from '../../../src/main/sheet-loading-ipc';
 import { createSheetLoadingWorkflow } from '../../../src/main/sheet-loading-workflow';
+import { createSheetEditing } from '../../../src/main/sheet-editing';
 import { noopLogger } from '../../../src/shared/logging-contract';
 import type { LogInput } from '../../../src/shared/logging-contract';
 import {
@@ -31,6 +32,7 @@ let system: string;
 let selection: LibrarySelection;
 let requestSheet: ReturnType<typeof createSheetLoadingWorkflow>;
 let records: LogInput[];
+let editing: ReturnType<typeof createSheetEditing>;
 
 // Write a file at a test-controlled path relative to the selected system.
 async function put(relative: string, contents: string | Uint8Array): Promise<string> {
@@ -51,7 +53,9 @@ beforeEach(async () => {
   await selection.chooseFolder(async () => library);
   await selection.selectSystem(systemId);
   records = [];
-  requestSheet = createSheetLoadingWorkflow(selection, { record: (entry) => records.push(entry) });
+  const logger = { record: (entry: LogInput) => records.push(entry) };
+  editing = createSheetEditing(selection, logger);
+  requestSheet = createSheetLoadingWorkflow(selection, logger, editing);
 });
 
 // Remove the disposable profile and library.
@@ -87,14 +91,41 @@ test.each([
     id: sheet.id,
     selectionRevision: list.selectionRevision,
   } as const;
-  expect(await requestSheet(open)).toEqual({ ok: true, action: 'open', mode: 'editable', sheet });
+  const opened = await requestSheet(open);
+  if (!opened.ok || opened.action !== 'open' || opened.mode !== 'editable') {
+    throw new Error('Expected an editable sheet');
+  }
+  expect(opened).toEqual({
+    ok: true,
+    action: 'open',
+    mode: 'editable',
+    sheet,
+    editHandle: { token: expect.any(String), revision: 0 },
+    modifierTargets: ['strengthBonus', 'toughnessBonus'],
+  });
+  const edited = editing.apply({
+    ...opened.editHandle,
+    operation: ['set-display-name', 'Edited sheet'],
+  });
+  expect(edited).toMatchObject({
+    ok: true,
+    sheet: { displayName: 'Edited sheet', derived: sheet.derived },
+    editHandle: { revision: 1 },
+  });
   await rename(path.join(system, fixtures.archivePath), path.join(system, 'archive-away.json'));
-  expect(await requestSheet(open)).toMatchObject({
+  const readOnly = await requestSheet(open);
+  expect(readOnly).toMatchObject({
     ok: true,
     action: 'open',
     mode: 'read-only',
     sheet,
     diagnostics: [{ code: 'DEFINITION_NOT_FOUND' }],
+  });
+  expect(readOnly).not.toHaveProperty('editHandle');
+  if (!edited.ok) throw new Error('Expected the edit to succeed');
+  expect(editing.apply({ ...edited.editHandle, operation: ['set-career', null] })).toEqual({
+    ok: false,
+    code: 'STALE_SHEET',
   });
   expect(await readFile(file)).toEqual(bytes);
   expect(records).toEqual(

@@ -3,6 +3,7 @@ import type { Instance, InstanceRole } from '../domain/definitions/document-mode
 import type { Diagnostic, DiagnosticCode } from '../domain/definitions/diagnostics';
 import { isSystemId } from './library-selection';
 import { isRecord } from './logging-contract';
+import type { SheetEditHandle } from './sheet-editing-contract';
 
 export const SHEET_LOADING_CHANNEL = 'sheet-loading:request';
 
@@ -18,7 +19,14 @@ export interface SavedSheetChoice {
 
 export type SheetLoadingResult =
   | { ok: true; action: 'list'; sheets: SavedSheetChoice[]; selectionRevision: number }
-  | { ok: true; action: 'open'; mode: 'editable'; sheet: Instance }
+  | {
+      ok: true;
+      action: 'open';
+      mode: 'editable';
+      sheet: Instance;
+      editHandle: SheetEditHandle;
+      modifierTargets: string[];
+    }
   | { ok: true; action: 'open'; mode: 'read-only'; sheet: Instance; diagnostics: Diagnostic[] }
   | {
       ok: false;
