@@ -1,0 +1,208 @@
+.rogue-trader-sheet {
+  /* Nine 6.5rem characteristic cards plus eight 0.35rem gaps. */
+  max-width: 62rem;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
+  position: relative;
+}
+
+/* Frame the sheet without reducing the space available to its fields. */
+.rogue-trader-sheet::before,
+.rogue-trader-sheet::after {
+  position: absolute;
+  inset-block: 0;
+  width: 1px;
+  background: #d7d0c5;
+  content: '';
+  pointer-events: none;
+}
+
+.rogue-trader-sheet::before {
+  inset-inline-start: -0.5rem;
+  box-shadow: -3px 0 5px #252d321a;
+}
+
+.rogue-trader-sheet::after {
+  inset-inline-end: -0.5rem;
+  box-shadow: 3px 0 5px #252d321a;
+}
+
+.rogue-trader-sheet > * + * {
+  margin-top: 1.75rem;
+}
+
+.rogue-trader-sheet .eyebrow {
+  margin: 0;
+  letter-spacing: 0.05em;
+  font-weight: 750;
+}
+
+.rogue-trader-sheet h1 {
+  margin: 0;
+  font-size: clamp(1.15rem, 3vw, 1.6rem);
+}
+
+.rogue-trader-sheet h2 {
+  margin-block: 0 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid #776344;
+  font-size: 1.2rem;
+}
+
+.rogue-trader-sheet dl,
+.rogue-trader-sheet dd {
+  margin: 0;
+}
+
+.rogue-trader-sheet dt {
+  color: #48555c;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.rogue-trader-sheet .rogue-trader-sheet__identity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem clamp(1rem, 4vw, 2.5rem);
+  margin-block-start: 0.75rem;
+}
+
+.rogue-trader-sheet__identity > div {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, max-content) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.rogue-trader-sheet__identity dt {
+  font-weight: 750;
+}
+
+.rogue-trader-sheet__identity dd {
+  border-bottom: 1px solid #776344;
+  padding-inline: 0.25rem;
+}
+
+.rogue-trader-sheet__identity > div:last-child {
+  grid-column: 2;
+}
+
+@media (max-width: 36rem) {
+  .rogue-trader-sheet .rogue-trader-sheet__identity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rogue-trader-sheet__identity > div:last-child {
+    grid-column: auto;
+  }
+}
+
+.rogue-trader-sheet__characteristics,
+.rogue-trader-sheet__movement {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
+.rogue-trader-sheet__movement {
+  text-align: center;
+}
+
+.rogue-trader-sheet__movement > div {
+  flex: 0 1 8rem;
+  min-width: 0;
+}
+
+.rogue-trader-sheet__grid,
+.rogue-trader-sheet__entry-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.25rem), 1fr));
+  gap: 0.5rem;
+}
+
+.rogue-trader-sheet__entry-groups {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+}
+
+.rogue-trader-sheet .rogue-trader-sheet__characteristic,
+.rogue-trader-sheet__grid > div,
+.rogue-trader-sheet__movement > div,
+.rogue-trader-sheet__entries li {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #cbc2b4;
+  background: #fffdf8;
+}
+
+.rogue-trader-sheet .rogue-trader-sheet__characteristic {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 6.5rem;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.rogue-trader-sheet__characteristic dt {
+  font-size: 0.75rem;
+}
+
+.rogue-trader-sheet__characteristic dd {
+  font-size: 1.1rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.rogue-trader-sheet__characteristic > div:first-child:not(:only-child) {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.2rem;
+  margin-bottom: 0.2rem;
+  border-bottom: 1px solid #cbc2b4;
+}
+
+.rogue-trader-sheet__characteristic > div:first-child:not(:only-child) dd {
+  font-size: 0.85rem;
+}
+
+.rogue-trader-sheet__grid dd,
+.rogue-trader-sheet__movement dd {
+  font-size: 1.2rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.rogue-trader-sheet__grid small,
+.rogue-trader-sheet__movement small {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.rogue-trader-sheet__entries {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding-inline-start: 0;
+  list-style: none;
+}
+
+.rogue-trader-sheet__entries h3,
+.rogue-trader-sheet__entries p {
+  margin: 0;
+}
+
+.rogue-trader-sheet__characteristic abbr {
+  text-decoration: none;
+}
+
+.rogue-trader-sheet__movement small {
+  display: block;
+  line-height: 1.35;
+}
+
+.rogue-trader-sheet__movement-reference {
+  margin-top: 0.2rem;
+  color: #48555c;
+}

@@ -4,7 +4,7 @@ import { INSTANCE_ROLES } from '../domain/definitions/document-models';
 import type { InstanceRole } from '../domain/definitions/document-models';
 import type { Diagnostic } from '../domain/definitions/diagnostics';
 import type { SheetLoadingRequest, SheetLoadingResult } from '../shared/sheet-loading-contract';
-import { SheetPreview } from './sheet-preview';
+import type { ViewSheet } from './sheet-view';
 
 type SheetChoices = Extract<SheetLoadingResult, { ok: true; action: 'list' }>;
 type OpenedSheet = Extract<SheetLoadingResult, { ok: true; action: 'open' }>;
@@ -13,6 +13,7 @@ interface SheetLoadingPanelProps {
   selectionRevision: number;
   busy: boolean;
   opening: boolean;
+  viewSheet: ViewSheet;
   listSheets(role: InstanceRole): Promise<SheetLoadingResult | undefined>;
   openSheet(
     request: Extract<SheetLoadingRequest, { action: 'open' }>,
@@ -27,7 +28,7 @@ function formatDiagnostic({ document, pointer, message }: Diagnostic): string {
 /**
  * Let users select and open a saved sheet from the active system.
  * @param props Current selection revision and the shared action guard's opening state and callback.
- * @returns The saved-sheet picker and its latest successful preview.
+ * @returns The saved-sheet picker and its action for its latest successful result.
  */
 export function SheetLoadingPanel({
   selectionRevision,
@@ -35,6 +36,7 @@ export function SheetLoadingPanel({
   opening,
   listSheets,
   openSheet,
+  viewSheet,
 }: SheetLoadingPanelProps) {
   const [role, setRole] = useState<InstanceRole>(INSTANCE_ROLES[0]);
   const [choices, setChoices] = useState<SheetChoices>();
@@ -44,12 +46,12 @@ export function SheetLoadingPanel({
   const [retry, setRetry] = useState(0);
   const [openIssue, setOpenIssue] = useState('');
   const [opened, setOpened] = useState<OpenedSheet>();
-  const preview = useRef<HTMLHeadingElement>(null);
+  const viewButton = useRef<HTMLButtonElement>(null);
   const sheetPicker = useRef<HTMLSelectElement>(null);
   const restoreOpenFocus = useRef(false);
   const listingTrigger = useRef<HTMLElement>(null);
 
-  // Reset the preview only when main changes the active selection.
+  // Reset the open result only when main changes the active selection.
   useEffect(() => {
     restoreOpenFocus.current = false;
     setOpened(undefined);
@@ -80,8 +82,9 @@ export function SheetLoadingPanel({
     };
   }, [selectionRevision, role, retry, listSheets]);
 
+  // Focus the available sheet action after a successful open.
   useEffect(() => {
-    if (opened) preview.current?.focus();
+    if (opened) viewButton.current?.focus();
   }, [opened]);
 
   // Consume each open failure once so later library actions keep their own focus.
@@ -140,7 +143,7 @@ export function SheetLoadingPanel({
 
   return (
     <section aria-labelledby="sheet-loading-heading">
-      <h2 id="sheet-loading-heading">Open a saved sheet</h2>
+      <h2 id="sheet-loading-heading">Load a saved sheet</h2>
       <form onSubmit={(event) => void submit(event)}>
         <fieldset disabled={busy}>
           <legend>Saved sheet</legend>
@@ -185,7 +188,7 @@ export function SheetLoadingPanel({
             ))}
           </select>
           <button type="submit" disabled={!id || listing}>
-            Open sheet
+            Load sheet
           </button>
           <button
             type="button"
@@ -197,26 +200,32 @@ export function SheetLoadingPanel({
           >
             Refresh saved sheets
           </button>
+          {opened && (
+            <button
+              ref={viewButton}
+              type="button"
+              onClick={(event) =>
+                viewSheet(
+                  {
+                    sheet: opened.sheet,
+                    readOnlyDetails:
+                      opened.mode === 'read-only'
+                        ? opened.diagnostics.map(formatDiagnostic)
+                        : undefined,
+                  },
+                  event.currentTarget,
+                )
+              }
+            >
+              View sheet
+            </button>
+          )}
         </fieldset>
       </form>
       <p role="status">{status}</p>
       <p role="alert" id="loading-error">
         {openIssue || listIssue}
       </p>
-      {opened?.mode === 'read-only' && (
-        <div>
-          <p>
-            This sheet is read-only because the system or template version it was saved with is
-            unavailable.
-          </p>
-          <ul>
-            {opened.diagnostics.map((diagnostic, index) => (
-              <li key={index}>{formatDiagnostic(diagnostic)}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {opened && <SheetPreview id="loading-preview" sheet={opened.sheet} headingRef={preview} />}
     </section>
   );
 }

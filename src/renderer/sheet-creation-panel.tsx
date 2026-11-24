@@ -9,7 +9,7 @@ import type {
   SheetCreationResult,
 } from '../shared/sheet-creation-contract';
 
-import { SheetPreview } from './sheet-preview';
+import type { ViewSheet } from './sheet-view';
 
 const DIACRITICS = /\p{Mark}+/gu;
 const ASCII_WORDS = /[a-z0-9]+/g;
@@ -20,6 +20,7 @@ interface SheetCreationPanelProps {
   activeSystem: NonNullable<LibraryView['activeSystem']>;
   busy: boolean;
   creating: boolean;
+  viewSheet: ViewSheet;
   createSheet(request: SheetCreationRequest): Promise<SheetCreationResult | undefined>;
 }
 
@@ -33,13 +34,14 @@ function suggestId(name: string): string {
 /**
  * Display creation controls and the most recent successful snapshot.
  * @param props Active selection, shared action state and the guarded creation callback.
- * @returns The sheet creation form and preview.
+ * @returns The sheet creation form and the action for its latest successful result.
  */
 export function SheetCreationPanel({
   activeSystem,
   busy,
   creating,
   createSheet,
+  viewSheet,
 }: SheetCreationPanelProps) {
   const [options, setOptions] = useState<SheetCreationOptions>();
   const [templateIndex, setTemplateIndex] = useState(0);
@@ -51,7 +53,7 @@ export function SheetCreationPanel({
   const [sheet, setSheet] = useState<Instance>();
   const [successMessage, setSuccessMessage] = useState('');
   const form = useRef<HTMLFormElement>(null);
-  const preview = useRef<HTMLHeadingElement>(null);
+  const viewButton = useRef<HTMLButtonElement>(null);
 
   // Restore keyboard context after the pending submission temporarily disables the form.
   useEffect(() => {
@@ -66,8 +68,9 @@ export function SheetCreationPanel({
     }
   }, [failure]);
 
+  // Make the next action clear after a successful creation.
   useEffect(() => {
-    if (sheet) preview.current?.focus();
+    if (sheet) viewButton.current?.focus();
   }, [sheet]);
 
   useEffect(() => {
@@ -177,6 +180,15 @@ export function SheetCreationPanel({
             <button id="creation-submit" type="submit">
               Create sheet
             </button>
+            {sheet && (
+              <button
+                ref={viewButton}
+                type="button"
+                onClick={(event) => viewSheet({ sheet }, event.currentTarget)}
+              >
+                View sheet
+              </button>
+            )}
           </fieldset>
         </form>
       )}
@@ -184,7 +196,6 @@ export function SheetCreationPanel({
         {failure?.message ?? optionsIssue}
       </p>
       <p role="status">{creating ? 'Creating sheet…' : successMessage}</p>
-      {sheet && <SheetPreview id="creation-preview" sheet={sheet} headingRef={preview} />}
     </section>
   );
 }

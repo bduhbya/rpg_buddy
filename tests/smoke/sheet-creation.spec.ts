@@ -80,33 +80,53 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   await page.keyboard.press('Control+a');
   await page.keyboard.type('captain-elodie');
   await page.keyboard.press('Enter');
-  const character = panel.getByRole('region', { name: 'Élodie' });
+  const view = panel
+    .getByRole('group', { name: 'Sheet details' })
+    .getByRole('button', { name: 'View sheet' });
+  const back = page.getByRole('button', { name: 'Back to main page' });
+  const character = page.getByRole('article', { name: 'Élodie' });
+  await expect(character).toHaveCount(0);
+  await expect(view).toBeFocused();
+  await view.press('Enter');
+  await expect(panel).toBeHidden();
+  await expect(character.getByRole('heading', { name: 'Élodie' })).toBeFocused();
   await expect(character.getByText('captain-elodie')).toBeVisible();
-  await expect(character.getByText('character', { exact: true })).toBeVisible();
+  await expect(character.getByText('Character', { exact: true })).toBeVisible();
   await expect(character.getByText('Strength', { exact: true }).locator('..')).toHaveText(
     'Strength0',
   );
-  await expect(character.getByText('Strength Bonus', { exact: true }).locator('..')).toHaveText(
-    'Strength Bonus0',
-  );
+  await expect(
+    character.getByTitle('Strength Bonus', { exact: true }).locator('xpath=../..'),
+  ).toHaveText('SB0');
 
+  await page.keyboard.press('Shift+Tab');
+  await expect(back).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(view).toBeFocused();
+  await expect(name).toHaveValue('Élodie');
   await expect(panel.getByRole('status')).toHaveText('Created Élodie.');
   await name.fill('Another captain');
   await id.press('Enter');
   await expect(panel.getByRole('alert')).toHaveText(/ID is already in use/);
   await expect(panel.getByRole('status')).toBeEmpty();
-  await expect(character.getByText('captain-elodie')).toBeVisible();
+  await expect(view).toBeVisible();
 
   await role.press('End');
   await name.fill('Void Beast');
   await expect(id).toHaveValue('captain-elodie');
   await id.fill('void-beast');
   await id.press('Enter');
-  const monster = panel.getByRole('region', { name: 'Void Beast' });
-  await expect(monster.getByText('void-beast')).toBeVisible();
-  await expect(monster.getByText('monster', { exact: true })).toBeVisible();
-  await expect(monster.getByRole('heading', { name: 'Final statistics' })).toBeVisible();
   await expect(panel.getByRole('status')).toHaveText('Created Void Beast.');
+  await expect(view).toBeFocused();
+  await view.press('Enter');
+  const monster = page.getByRole('article', { name: 'Void Beast' });
+  await expect(monster.getByText('void-beast')).toBeVisible();
+  await expect(monster.getByText('Monster', { exact: true })).toBeVisible();
+  await expect(monster.getByRole('heading', { name: 'Movement' })).toBeVisible();
+  await back.press('Enter');
+  await expect(view).toBeFocused();
+  await expect(role).toHaveValue('monster');
+  await expect(id).toHaveValue('void-beast');
 
   const invalid = await page.evaluate(() => window.rpgBuddy.createCharacterSheet({} as never));
   expect(invalid).toMatchObject({ ok: false, code: 'INVALID_REQUEST' });

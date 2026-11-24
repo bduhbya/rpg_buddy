@@ -7,7 +7,23 @@ import type { LogService } from './logging';
 import { createMainWorkflowLog } from './workflow-log';
 
 // Authorize exact renderer workflows and keep main-owned steps off the bridge.
-function isAuthorizedRendererFailure({ event, step, outcome, level, reason }: LogInput): boolean {
+function isAuthorizedRendererRecord({
+  event,
+  step,
+  outcome,
+  level,
+  reason,
+  error,
+}: LogInput): boolean {
+  if (event === 'sheet.view') {
+    return (
+      (step === 'view.enter' || step === 'view.return') &&
+      level === 'info' &&
+      outcome === 'succeeded' &&
+      reason === undefined &&
+      error === undefined
+    );
+  }
   if (level !== 'error' || outcome !== 'failed') return false;
   switch (event) {
     case 'diagnostic.simulation':
@@ -59,7 +75,7 @@ export function createLogHandler(
       if (args.length !== 1 || !isLogRequest(args[0]))
         return log.ipcFailure('INVALID_REQUEST', 'payload.validate');
       const input = args[0].input;
-      if (!isAuthorizedRendererFailure(input))
+      if (!isAuthorizedRendererRecord(input))
         return log.ipcFailure('INVALID_REQUEST', 'event.authorize');
       const accepted = service.accept(input, 'renderer', owner.getOSProcessId());
       if (!accepted) return { ok: false, code: 'UNAVAILABLE' };
