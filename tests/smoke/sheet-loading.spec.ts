@@ -132,6 +132,21 @@ test('opens saved character and monster sheets and explains read-only and invali
     await expect(page.getByRole('complementary', { name: 'Read-only sheet' })).toHaveCount(
       readOnly ? 1 : 0,
     );
+    const edit = page.getByRole('button', { name: 'Edit', exact: true });
+    await expect(edit).toHaveCount(readOnly ? 0 : 1);
+
+    if (!readOnly && sheet.role === 'character') {
+      await edit.press('Enter');
+      const done = page.getByRole('button', { name: 'Done', exact: true });
+      const name = article.getByRole('textbox', { name: 'Character name' });
+      await name.fill('Edited ' + sheet.displayName);
+      await article.getByRole('textbox', { name: 'Career path' }).fill('Navigator');
+      await done.press('Enter');
+      const heading = page.getByRole('heading', { name: 'Edited ' + sheet.displayName });
+      await expect(heading).toBeVisible();
+      await expect(page.getByText('Navigator', { exact: true })).toBeVisible();
+      await heading.focus();
+    }
 
     if (capture) {
       await page.screenshot({ path: testInfo.outputPath('sheet-regular.png'), fullPage: true });
@@ -149,6 +164,10 @@ test('opens saved character and monster sheets and explains read-only and invali
     }
 
     await page.keyboard.press('Shift+Tab');
+    if (!readOnly) {
+      await expect(edit).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+    }
     await expect(back).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(view).toBeFocused();

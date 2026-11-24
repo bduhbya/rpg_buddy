@@ -209,14 +209,14 @@ export async function loadActiveSystem(
  * @param definitionReferences Exact system and template IDs and versions supplied by the caller, such as from a saved sheet. The loader validates them before building filesystem paths.
  * @param logger Application logger. Omit to skip recording product logs.
  * @param parentOperationId ID of the enclosing operation when it owns the final outcome.
- * @returns The resolved definitions or diagnostics. No catalog is retained by the loader.
+ * @returns The resolved definitions and their validated catalog, or diagnostics.
  */
 export async function loadExactDefinitions(
   libraryRootPath: string,
   definitionReferences: unknown,
   logger: Logger = noopLogger,
   parentOperationId?: string,
-): Promise<ValidationResult<ResolvedDefinitions>> {
+): Promise<ValidationResult<ResolvedDefinitions & { catalog: InMemoryDefinitionCatalog }>> {
   const log = createMainWorkflowLog(logger, 'library.definitions.exact', {
     operationId: parentOperationId,
     checkpointsOnly: parentOperationId !== undefined,
@@ -279,7 +279,7 @@ export async function loadExactDefinitions(
     );
     if (!resolved.success) return log.diagnosticFailure(resolved, 'definitions.resolve');
     log.outcome({ step: 'definitions.load', outcome: 'succeeded', level: 'info' });
-    return resolved;
+    return { success: true, value: { ...resolved.value, catalog: catalog.value } };
   } catch (error) {
     log.outcome(
       { step: 'definitions.load', outcome: 'failed', level: 'error', reason: 'UNAVAILABLE' },

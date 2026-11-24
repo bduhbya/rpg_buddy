@@ -5,6 +5,7 @@ import { isSystemId } from './library-selection';
 import { isRecord } from './logging-contract';
 import type { Instance, InstanceRole } from '../domain/definitions/document-models';
 import type { DiagnosticCode } from '../domain/definitions/diagnostics';
+import type { SheetEditHandle } from './sheet-editing-contract';
 
 /** Template choices for the currently loaded library and system. */
 export interface SheetCreationOptions {
@@ -45,7 +46,7 @@ export type SheetCreationFailureCode =
   | 'UNAVAILABLE';
 
 export type SheetCreationResult =
-  | { ok: true; sheet: Instance }
+  | { ok: true; sheet: Instance; editHandle: SheetEditHandle; modifierTargets: string[] }
   | {
       ok: false;
       code: SheetCreationFailureCode;

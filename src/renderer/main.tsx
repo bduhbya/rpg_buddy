@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ApplicationInfoResult } from '../shared/application-info';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
-import { RogueTraderSheet } from './rogue-trader-sheet';
+import { EditableSheet } from './editable-sheet';
 import type { SheetView } from './sheet-view';
 import { LibraryPanel } from './library-panel';
 import { createRendererWorkflowLog } from './renderer-logger';
@@ -137,33 +137,7 @@ function App() {
           <p role="status">{diagnostic}</p>
         </section>
       </main>
-      {sheetView && (
-        <main className="sheet-page">
-          <button type="button" onClick={returnToMain}>
-            Back to main page
-          </button>
-          {sheetView.readOnlyDetails && (
-            <aside className="sheet-page__read-only" aria-label="Read-only sheet">
-              <p id="sheet-read-only-note">
-                This sheet is read-only because the system or template version it was saved with is
-                unavailable.
-              </p>
-              {sheetView.readOnlyDetails.length > 0 && (
-                <ul>
-                  {sheetView.readOnlyDetails.map((detail, index) => (
-                    <li key={index}>{detail}</li>
-                  ))}
-                </ul>
-              )}
-            </aside>
-          )}
-          <RogueTraderSheet
-            sheet={sheetView.sheet}
-            headingRef={heading}
-            headingDescriptionId={sheetView.readOnlyDetails ? 'sheet-read-only-note' : undefined}
-          />
-        </main>
-      )}
+      {sheetView && <EditableSheet view={sheetView} heading={heading} back={returnToMain} />}
     </>
   );
 }

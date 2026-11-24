@@ -6,6 +6,7 @@ import type {
 import type { LogInput, LogResult } from './logging-contract';
 import type { LibraryRequest, LibraryResult } from './library-selection';
 import type { SheetLoadingRequest, SheetLoadingResult } from './sheet-loading-contract';
+import type { SheetEditRequest, SheetEditResult } from './sheet-editing-contract';
 export const APPLICATION_INFO_API_VERSION = 1;
 export const APPLICATION_INFO_CHANNEL = 'application:get-info';
 
@@ -31,6 +32,8 @@ interface BridgeRequestOptions {
 }
 
 export interface ApplicationBridge {
+  /** Apply one operation and return the complete updated in-memory sheet. */
+  editSheet(request: SheetEditRequest): Promise<SheetEditResult>;
   sheetLoading(request: SheetLoadingRequest): Promise<SheetLoadingResult>;
   getSheetCreationOptions(): Promise<SheetCreationOptionsResult>;
   createCharacterSheet(request: SheetCreationRequest): Promise<SheetCreationResult>;

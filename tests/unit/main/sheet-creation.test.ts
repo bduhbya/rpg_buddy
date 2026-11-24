@@ -7,6 +7,7 @@ import path from 'node:path';
 import { LibrarySelection } from '../../../src/main/library-selection';
 import { createSheetCreationHandlers } from '../../../src/main/sheet-creation-ipc';
 import { createSheetWorkflow } from '../../../src/main/sheet-creation-workflow';
+import { createSheetEditing, createSheetEditingHandler } from '../../../src/main/sheet-editing';
 import { validateInstanceSnapshot } from '../../../src/domain/instances/validate-instance-snapshot';
 import { noopLogger } from '../../../src/shared/logging-contract';
 import type { LogInput } from '../../../src/shared/logging-contract';
@@ -20,6 +21,7 @@ let selection: LibrarySelection;
 let workflow: ReturnType<typeof createSheetWorkflow>;
 let request: SheetCreationRequest;
 let records: LogInput[];
+let editing: ReturnType<typeof createSheetEditing>;
 
 // Exercise the real library loader with a fresh profile and a disposable library.
 beforeEach(async () => {
@@ -29,7 +31,9 @@ beforeEach(async () => {
   await cp(path.resolve('runtime-library'), library, { recursive: true });
   selection = new LibrarySelection(path.join(temp, 'profile'), noopLogger);
   records = [];
-  workflow = createSheetWorkflow(selection, { record: (entry) => records.push(entry) });
+  const logger = { record: (entry: LogInput) => records.push(entry) };
+  editing = createSheetEditing(selection, logger);
+  workflow = createSheetWorkflow(selection, logger, editing);
   expect(workflow.getSheetCreationOptions()).toBeNull();
   await selection.chooseFolder(async () => library);
   expect(workflow.getSheetCreationOptions()).toBeNull();
@@ -43,6 +47,88 @@ beforeEach(async () => {
     id: 'captain-private',
     displayName: '  Captain Private  ',
   };
+});
+
+it('authorizes one revisioned edit at a time and preserves state when an edit fails', async () => {
+  const created = await workflow.createCharacterSheet(request);
+  if (!created.ok) throw new Error(created.message);
+  const url = 'file:///application/index.html';
+  const frame = { url };
+  const owner = {
+    isDestroyed: () => false,
+    getURL: () => url,
+    mainFrame: frame,
+  } as unknown as WebContents;
+  const event = { sender: owner, senderFrame: frame } as IpcMainInvokeEvent;
+  const handle = createSheetEditingHandler(() => owner, url, editing.apply, {
+    record: (entry) => records.push(entry),
+  });
+  const apply = { ...created.editHandle, operation: ['set-value', 'strength', 43] };
+  expect(handle({ ...event, senderFrame: { url } } as IpcMainInvokeEvent, apply)).toEqual({
+    ok: false,
+    code: 'FORBIDDEN',
+  });
+  expect(handle(event, { ...apply, sheet: created.sheet })).toEqual({
+    ok: false,
+    code: 'INVALID_REQUEST',
+  });
+  expect(handle(event, { ...apply, operation: ['set-value', 'strength', '43'] })).toEqual({
+    ok: false,
+    code: 'INVALID_REQUEST',
+  });
+  for (const operation of [
+    ['add-entry', '{}'],
+    ['replace-entry', '{}'],
+    ['add-rulebook-entry', 'custom-strength'],
+    ['add-rulebook-entry', 'unnatural-strength', 99],
+  ]) {
+    expect(handle(event, { ...apply, operation })).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+  }
+  expect(handle(event, { ...apply, operation: ['set-value', 'strength', -1] })).toMatchObject({
+    ok: false,
+    diagnostics: [{ pointer: expect.stringContaining('strength') }],
+  });
+  const edited = handle(event, apply);
+  expect(edited).toMatchObject({
+    ok: true,
+    sheet: { values: { strength: 43 }, derived: { strengthBonus: 4 } },
+    editHandle: { token: created.editHandle.token, revision: 1 },
+  });
+  expect(created.sheet).toMatchObject({ values: { strength: 0 }, derived: { strengthBonus: 0 } });
+  expect(handle(event, apply)).toEqual({ ok: false, code: 'STALE_SHEET' });
+  const next = await workflow.createCharacterSheet({ ...request, id: 'replacement' });
+  if (!next.ok) throw new Error(next.message);
+  expect(handle(event, { ...apply, revision: 1 })).toEqual({ ok: false, code: 'STALE_SHEET' });
+  await selection.selectSystem('rogue-trader');
+  expect(handle(event, { ...apply, ...next.editHandle })).toEqual({
+    ok: false,
+    code: 'STALE_SHEET',
+  });
+  expect(records).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        event: 'instance.edit',
+        step: 'sheet.update',
+        outcome: 'succeeded',
+        level: 'info',
+      }),
+      expect.objectContaining({
+        event: 'instance.edit',
+        level: 'warn',
+        reason: expect.any(String),
+      }),
+      expect.objectContaining({
+        event: 'instance.edit',
+        step: 'sheet.check',
+        outcome: 'rejected',
+        reason: 'STALE_SHEET',
+      }),
+    ]),
+  );
+  const logged = JSON.stringify(records);
+  expect(logged).not.toContain(created.editHandle.token);
+  expect(logged).not.toContain(created.sheet.displayName);
+  expect(logged).not.toContain(created.sheet.id);
 });
 
 // Remove the isolated test data.
@@ -182,11 +268,15 @@ it('logs safe correlated outcomes and preserves results when the logger throws',
   }
 
   // A failing sink must preserve both a successful creation and its collision result.
-  const noisy = createSheetWorkflow(selection, {
-    record() {
-      throw new Error('logging failure');
+  const noisy = createSheetWorkflow(
+    selection,
+    {
+      record() {
+        throw new Error('logging failure');
+      },
     },
-  });
+    editing,
+  );
   expect((await noisy.createCharacterSheet(request)).ok).toBe(true);
   expect(await noisy.createCharacterSheet(request)).toMatchObject({
     ok: false,

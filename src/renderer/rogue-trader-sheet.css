@@ -206,3 +206,87 @@
   margin-top: 0.2rem;
   color: #48555c;
 }
+
+.sheet-edit-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sheet-edit-value {
+  min-inline-size: 0;
+}
+
+.sheet-edit-value input {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  font: inherit;
+}
+
+.sheet-edit-value input:focus-visible,
+.sheet-edit-picker input:focus-visible {
+  outline: 3px solid #245f87;
+  outline-offset: 2px;
+}
+
+.sheet-edit-value input[aria-invalid='true'] {
+  border-color: #8b2821;
+}
+
+.sheet-edit-picker,
+.sheet-edit-picker label {
+  display: grid;
+  min-inline-size: 0;
+  gap: 0.35rem;
+}
+
+.sheet-edit-picker :is(input, select) {
+  width: 100%;
+  min-inline-size: 0;
+  font: inherit;
+}
+
+.sheet-edit-picker > button {
+  justify-self: start;
+}
+
+.sheet-edit-combobox__popup {
+  border: 1px solid #776344;
+  background: #fffdf8;
+}
+
+.sheet-edit-combobox__popup ul {
+  max-block-size: 12rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sheet-edit-combobox__popup li,
+.sheet-edit-combobox__popup p {
+  margin: 0;
+  padding: 0.3rem 0.55rem;
+}
+
+.sheet-edit-combobox__popup li {
+  cursor: pointer;
+}
+
+.sheet-edit-combobox__popup small {
+  display: block;
+  color: #48555c;
+}
+
+.sheet-edit-pending p {
+  margin-block: 0.25rem;
+}
+
+.sheet-edit-combobox__popup li:hover,
+.sheet-edit-combobox__popup li[aria-selected='true'] {
+  background: #e4ecf2;
+}
