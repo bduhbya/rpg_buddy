@@ -52,10 +52,10 @@ test('opens saved character and monster sheets and explains read-only and invali
   await systemPicker.press('End');
   await load.press('Enter');
 
-  const panel = page.getByRole('region', { name: 'Open a saved sheet' });
+  const panel = page.getByRole('region', { name: 'Load a saved sheet' });
   const role = panel.getByRole('combobox', { name: 'Role' });
   const sheets = panel.getByRole('combobox', { name: 'Saved sheet' });
-  const open = panel.getByRole('button', { name: 'Open sheet', exact: true });
+  const open = panel.getByRole('button', { name: 'Load sheet', exact: true });
   // Names make the picker readable, while IDs disambiguate sheets with the same name.
   await expect(
     sheets.getByRole('option', {
@@ -107,24 +107,61 @@ test('opens saved character and monster sheets and explains read-only and invali
   await expect(load).toBeEnabled();
   await expect(sheets).toBeFocused();
 
-  // Recover by keyboard and compare the preview with the character fixture.
+  const view = panel
+    .getByRole('group', { name: 'Saved sheet' })
+    .getByRole('button', { name: 'View sheet' });
+  const back = page.getByRole('button', { name: 'Back to main page' });
+
+  // View the recorded values and return focus to the main page for each successful open.
+  async function viewRecordedSheet(sheet: Instance, readOnly: boolean, capture = false) {
+    await expect(view).toBeFocused();
+    await expect(panel.getByRole('status')).toContainText(
+      readOnly ? 'in read-only mode' : `Opened ${sheet.displayName}.`,
+    );
+    await view.press('Enter');
+    await expect(panel).toBeHidden();
+    const article = page.getByRole('article', { name: sheet.displayName });
+    await expect(article.getByRole('heading', { name: sheet.displayName })).toBeFocused();
+    await expect(article.getByText('Strength', { exact: true }).locator('..')).toHaveText(
+      'Strength' + sheet.values.strength,
+    );
+    await expect(
+      article.getByTitle('Toughness Bonus', { exact: true }).locator('xpath=../..'),
+    ).toHaveText('TB' + sheet.derived.toughnessBonus);
+    await expect(article.getByRole('heading', { name: 'Movement' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Read-only sheet' })).toHaveCount(
+      readOnly ? 1 : 0,
+    );
+
+    if (capture) {
+      await page.screenshot({ path: testInfo.outputPath('sheet-regular.png'), fullPage: true });
+      const viewport = await page.evaluate(() => ({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }));
+      await page.setViewportSize({ width: 360, height: 720 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath('sheet-narrow.png'), fullPage: true });
+      await page.setViewportSize(viewport);
+      await article.getByRole('heading', { name: sheet.displayName }).focus();
+    }
+
+    await page.keyboard.press('Shift+Tab');
+    await expect(back).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(view).toBeFocused();
+    await expect(sheets).toHaveValue(sheet.id);
+  }
+
+  // Recover by keyboard, then open both roles while their definitions are available.
   await sheets.press('ArrowUp');
   await expect(sheets).toHaveValue(character.sheet.id);
   await open.press('Enter');
-  const characterPreview = panel.getByRole('region', { name: character.sheet.displayName });
-  await expect(
-    characterPreview.getByRole('heading', { name: character.sheet.displayName }),
-  ).toBeFocused();
-  await expect(characterPreview.getByText('Strength', { exact: true }).locator('..')).toHaveText(
-    'Strength' + character.sheet.values.strength,
-  );
-  await expect(
-    characterPreview.getByText('Strength Bonus', { exact: true }).locator('..'),
-  ).toHaveText('Strength Bonus' + character.sheet.derived.strengthBonus);
+  await viewRecordedSheet(character.sheet, false);
   await expect(panel.getByRole('alert')).toBeEmpty();
 
-  // Remove the archived manifest to exercise read-only opening for the monster.
-  await unlink(path.join(library, manifest));
   const listingState = observeBusyControls('Finding saved sheets');
   await role.press('End');
   await expect(
@@ -138,17 +175,16 @@ test('opens saved character and monster sheets and explains read-only and invali
   await expect(systemPicker).toBeEnabled();
   await sheets.press('End');
   await open.press('Enter');
-  await expect(panel.getByRole('status')).toContainText('in read-only mode');
-  await expect(
-    panel.getByText(
-      'This sheet is read-only because the system or template version it was saved with is unavailable.',
-      { exact: true },
-    ),
-  ).toBeVisible();
-  const monsterPreview = panel.getByRole('region', { name: monster.sheet.displayName });
-  await expect(
-    monsterPreview.getByText('Strength Bonus', { exact: true }).locator('..'),
-  ).toHaveText('Strength Bonus' + monster.sheet.derived.strengthBonus);
+  await viewRecordedSheet(monster.sheet, false);
+
+  // Remove the archived definition and verify the same display for both roles.
+  await unlink(path.join(library, manifest));
+  await open.press('Enter');
+  await viewRecordedSheet(monster.sheet, true, true);
+  await role.press('Home');
+  await sheets.selectOption(character.sheet.id);
+  await open.press('Enter');
+  await viewRecordedSheet(character.sheet, true);
   // Opening either role must preserve its original file bytes.
   for (const { file, bytes } of files) expect(await readFile(file)).toEqual(bytes);
   expect(await readFile(invalid, 'utf8')).toBe('{');
@@ -184,16 +220,41 @@ test('opens saved character and monster sheets and explains read-only and invali
     .toEqual([
       { step: 'sheet.read', outcome: 'rejected', reason: 'INVALID_JSON', correlated: true },
       { step: 'sheet.open', outcome: 'succeeded', reason: undefined, correlated: true },
-      {
+      { step: 'sheet.open', outcome: 'succeeded', reason: undefined, correlated: true },
+      ...Array.from({ length: 2 }, () => ({
         step: 'definitions.resolve',
         outcome: 'degraded',
         reason: 'DEFINITION_NOT_FOUND',
         correlated: true,
-      },
+      })),
     ]);
+
+  // Navigation records contain a distinct correlation ID per visit and no sheet data.
+  await expect
+    .poll(async () => {
+      const log = await readFile(logFile, 'utf8');
+      const rows = log
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line))
+        .filter((row) => row.event === 'sheet.view');
+      const operations = new Map<string, string[]>();
+      for (const row of rows) {
+        const steps = operations.get(row.operationId) ?? [];
+        steps.push(row.step + ':' + row.outcome);
+        operations.set(row.operationId, steps);
+        const record = JSON.stringify(row);
+        for (const { sheet } of files) {
+          expect(record).not.toContain(sheet.displayName);
+          expect(record).not.toContain(sheet.id);
+        }
+      }
+      return [...operations.values()];
+    })
+    .toEqual(Array.from({ length: 4 }, () => ['view.enter:succeeded', 'view.return:succeeded']));
 });
 
-test('preserves the selected sheet and preview when the library picker is cancelled or rejected', async ({
+test('preserves the selected sheet and view action when the library picker is cancelled or rejected', async ({
   shell,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'packaged', 'Requires main-process dialog automation');
@@ -240,28 +301,28 @@ test('preserves the selected sheet and preview when the library picker is cancel
     .selectOption(authored.system.id);
   await load.click();
 
-  const loading = page.getByRole('region', { name: 'Open a saved sheet' });
+  const loading = page.getByRole('region', { name: 'Load a saved sheet' });
   const sheets = loading.getByRole('combobox', { name: 'Saved sheet' });
-  const preview = loading.getByRole('region', { name: sheet.displayName });
+  const view = loading.getByRole('button', { name: 'View sheet' });
   await sheets.selectOption(sheet.id);
-  await loading.getByRole('button', { name: 'Open sheet', exact: true }).click();
-  await expect(preview).toBeVisible();
+  await loading.getByRole('button', { name: 'Load sheet', exact: true }).click();
+  await expect(view).toBeVisible();
 
   await picker.click();
   await expect(libraryPanel.getByRole('status')).toHaveText('Folder selection cancelled.');
   await expect(sheets).toHaveValue(sheet.id);
-  await expect(preview).toBeVisible();
+  await expect(view).toBeVisible();
 
   await picker.click();
   await expect(libraryPanel.getByRole('alert')).toContainText('RPG_systems');
   await expect(sheets).toHaveValue(sheet.id);
-  await expect(preview).toBeVisible();
+  await expect(view).toBeVisible();
 
   // Reloading the system advances its revision and clears the previous open.
   await load.click();
   await expect(libraryPanel.getByRole('status')).toHaveText(/Loaded Rogue Trader/);
   await expect(sheets).toHaveValue('');
-  await expect(preview).toHaveCount(0);
+  await expect(view).toHaveCount(0);
 });
 
 test('returns focus to Choose library folder after cancellation following a failed sheet open', async ({
@@ -300,10 +361,10 @@ test('returns focus to Choose library folder after cancellation following a fail
     .selectOption(authored.system.id);
   await libraryPanel.getByRole('button', { name: 'Load system' }).press('Enter');
 
-  const loading = page.getByRole('region', { name: 'Open a saved sheet' });
+  const loading = page.getByRole('region', { name: 'Load a saved sheet' });
   const sheets = loading.getByRole('combobox', { name: 'Saved sheet' });
   await sheets.selectOption('invalid');
-  await loading.getByRole('button', { name: 'Open sheet', exact: true }).press('Enter');
+  await loading.getByRole('button', { name: 'Load sheet', exact: true }).press('Enter');
   await expect(loading.getByRole('alert')).toContainText('invalid.json');
   await expect(sheets).toBeFocused();
 

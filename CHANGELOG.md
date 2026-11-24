@@ -2,6 +2,11 @@
 
 Entries summarize development changes by date and may be updated before committing.
 
+## 2026-11-24
+
+- Added a shared, full-window Rogue Trader sheet for newly created and loaded characters and monsters. The centered layout shows identity, characteristics and bonuses, entries, and stored movement values. Read-only sheets use the same layout and explain when exact definitions are unavailable.
+- Replaced inline previews with a **View sheet** button inside each creation or loading form. **Back to main page** restores the form and keyboard focus to the button that opened the sheet.
+
 ## 2026-11-20
 
 - Added a desktop picker for saved character and monster sheets. Choices show the display name and stable ID. Opening shows stored statistics without recalculating or changing the file, explains read-only mode when a matching system or template version is unavailable, and reports invalid-file diagnostics.

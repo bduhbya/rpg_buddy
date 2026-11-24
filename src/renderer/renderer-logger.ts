@@ -2,7 +2,7 @@ import { sanitizeError } from '../shared/logging-contract';
 import type { LogResult } from '../shared/logging-contract';
 
 /**
- * Record errors owned by one renderer workflow through the validated bridge.
+ * Record outcomes owned by one renderer workflow through the validated bridge.
  * @param event Stable event name for the workflow.
  * @returns A recorder with delivery status and a helper that returns the supplied fallback.
  */
@@ -31,6 +31,20 @@ export function createRendererWorkflowLog(event: string) {
 
   return {
     recordFailure,
+    // Record completed navigation without making the view depend on log delivery.
+    async recordSuccess(step: string, operationId: string): Promise<LogResult> {
+      try {
+        return await window.rpgBuddy.recordLog({
+          event,
+          step,
+          operationId,
+          level: 'info',
+          outcome: 'succeeded',
+        });
+      } catch {
+        return { ok: false, code: 'UNAVAILABLE' };
+      }
+    },
     // Keep UI fallback independent of the sink's availability and response time.
     failure<T>(fallback: T, step: string, reason: string, error: unknown): T {
       void recordFailure(step, reason, error);

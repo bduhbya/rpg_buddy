@@ -8,15 +8,18 @@ import { createRendererWorkflowLog } from './renderer-logger';
 import { SheetLoadingPanel } from './sheet-loading-panel';
 import type { SheetLoadingRequest, SheetLoadingResult } from '../shared/sheet-loading-contract';
 
+import type { ViewSheet } from './sheet-view';
+
 type LibraryAction = 'choose' | 'load' | 'create' | 'list' | 'open';
 
 const libraryLog = createRendererWorkflowLog('library.request');
 
 /**
  * Render the library picker, system selection and accessible loading feedback.
+ * @param props The callback for viewing a workflow result.
  * @returns The library controls displayed in the desktop shell.
  */
-export function LibraryPanel() {
+export function LibraryPanel({ viewSheet }: { viewSheet: ViewSheet }) {
   const [view, setView] = useState<LibraryView>();
   const [candidate, setCandidate] = useState('');
   const [status, setStatus] = useState('Checking the remembered library…');
@@ -248,6 +251,7 @@ export function LibraryPanel() {
           opening={busy === 'open'}
           listSheets={listSheets}
           openSheet={openSheet}
+          viewSheet={viewSheet}
         />
       )}
       {view?.activeSystem && (
@@ -256,6 +260,7 @@ export function LibraryPanel() {
           busy={busy !== undefined}
           creating={busy === 'create'}
           createSheet={createSheet}
+          viewSheet={viewSheet}
         />
       )}
     </>

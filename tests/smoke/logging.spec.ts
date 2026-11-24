@@ -387,6 +387,22 @@ test('known IPC failure reasons are searchable, bounded and cannot disrupt repli
   expect(isLogRequest(unauthorizedEvent)).toBe(true);
   const restricted = createLogHandler(() => owner, url, { accept: () => true, record: () => {} });
   expect(restricted(trusted, unauthorizedEvent)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+  const navigation = {
+    apiVersion: 1,
+    input: {
+      event: 'sheet.view',
+      step: 'view.enter',
+      outcome: 'succeeded',
+      level: 'info',
+      operationId: request.input.operationId,
+    },
+  };
+  expect(restricted(trusted, navigation)).toEqual({ ok: true });
+  for (const extra of [{ step: 'sheet.open' }, { reason: 'UNEXPECTED_REASON' }]) {
+    expect(
+      restricted(trusted, { ...navigation, input: { ...navigation.input, ...extra } }),
+    ).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+  }
   for (let n = 0; n < 30; n++) expect(handle(trusted, request)).toEqual({ ok: true });
   expect(handle(trusted, request)).toEqual({ ok: false, code: 'RATE_LIMITED' });
   expect(flood[0]).toMatchObject({ event: 'diagnostic.request', reason: 'RATE_LIMITED' });
