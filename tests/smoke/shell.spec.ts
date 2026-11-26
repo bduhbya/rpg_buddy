@@ -148,8 +148,10 @@ test('bridge isolates child frames and blocks navigation and popups', async ({
     'getApplicationInfo',
     'getSheetCreationOptions',
     'librarySelection',
+    'previewSheetEdits',
     'recordLog',
     'sheetLoading',
+    'sheetSaving',
   ]);
   await page.evaluate(() => {
     const iframe = document.createElement('iframe');

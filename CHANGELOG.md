@@ -2,6 +2,12 @@
 
 Entries summarize development changes by date and may be updated before committing.
 
+## 2026-11-25
+
+- Added library saving for Rogue Trader characters and monsters. Newly created sheets open in edit mode on their first visit. The edit toolbar shows **Save** and the role-specific library destination. Users can save a new sheet without editing it, and successful saves refresh the saved-sheet list. Read-only sheets have no save controls.
+- Added a **Done** prompt for unsaved changes with options to save, discard, or keep editing. Pending edits are checked using the same calculations as **Apply edits**, and numeric fields strip leading zeros even when pasted with surrounding whitespace. Invalid drafts block saving, and failed writes leave accepted edits available for retry.
+- Protected saved sheets against stale edits and preserved the previous backup when a save leaves sheet content unchanged. Added automated coverage for saving and reopening both roles, retrying a failed write, and preserving recorded and recalculated results.
+
 ## 2026-11-24
 
 - Added a shared, full-window Rogue Trader sheet for newly created and loaded characters and monsters. The centered layout shows identity, characteristics and bonuses, entries, and stored movement values. Read-only sheets use the same layout and explain when exact definitions are unavailable.

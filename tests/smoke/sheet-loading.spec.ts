@@ -7,6 +7,12 @@ import {
   seedAuthoredDefinitions,
 } from '../fixtures/rogue-trader-definitions';
 import { test } from './fixtures/desktop-shell';
+import {
+  gameLibrary,
+  loadLibrarySystem,
+  openLibrarySystem,
+  savedSheetNavigation,
+} from './fixtures/navigation';
 
 test('opens saved character and monster sheets and explains read-only and invalid files', async ({
   shell,
@@ -41,21 +47,15 @@ test('opens saved character and monster sheets and explains read-only and invali
   const invalid = path.join(library, system, 'characters', 'invalid.json');
   await writeFile(invalid, '{');
 
-  // Replace the native folder dialog and load the system through the real UI.
-  await application.evaluate(({ dialog }, folder) => {
-    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] });
-  }, library);
-  const picker = page.getByRole('button', { name: 'Choose library folder' });
-  const systemPicker = page.getByRole('combobox', { name: 'Game system' });
-  const load = page.getByRole('button', { name: 'Load system' });
-  await picker.press('Enter');
-  await systemPicker.press('End');
-  await load.press('Enter');
-
-  const panel = page.getByRole('region', { name: 'Load a saved sheet' });
-  const role = panel.getByRole('combobox', { name: 'Role' });
-  const sheets = panel.getByRole('combobox', { name: 'Saved sheet' });
-  const open = panel.getByRole('button', { name: 'Load sheet', exact: true });
+  await openLibrarySystem(page, application, library, authored.system.id);
+  const { chooseFolder: picker, system: systemPicker, loadSystem: load } = gameLibrary(page);
+  const {
+    region: panel,
+    role,
+    sheets,
+    loadSheet: open,
+    viewSheet: view,
+  } = savedSheetNavigation(page);
   // Names make the picker readable, while IDs disambiguate sheets with the same name.
   await expect(
     sheets.getByRole('option', {
@@ -107,9 +107,6 @@ test('opens saved character and monster sheets and explains read-only and invali
   await expect(load).toBeEnabled();
   await expect(sheets).toBeFocused();
 
-  const view = panel
-    .getByRole('group', { name: 'Saved sheet' })
-    .getByRole('button', { name: 'View sheet' });
   const back = page.getByRole('button', { name: 'Back to main page' });
 
   // View the recorded values and return focus to the main page for each successful open.
@@ -141,11 +138,22 @@ test('opens saved character and monster sheets and explains read-only and invali
       const name = article.getByRole('textbox', { name: 'Character name' });
       await name.fill('Edited ' + sheet.displayName);
       await article.getByRole('textbox', { name: 'Career path' }).fill('Navigator');
-      await done.press('Enter');
+      const apply = page.getByRole('button', { name: 'Apply edits' });
+      await apply.press('Enter');
       const heading = page.getByRole('heading', { name: 'Edited ' + sheet.displayName });
-      await expect(heading).toBeVisible();
-      await expect(page.getByText('Navigator', { exact: true })).toBeVisible();
-      await heading.focus();
+      await expect(heading).toHaveText('Edited ' + sheet.displayName);
+      await expect(page.locator('.sheet-page__edit-feedback').getByRole('status')).toHaveText(
+        'Changes applied.',
+      );
+      const career = page.getByRole('textbox', { name: 'Career path' });
+      await expect(career).toHaveValue('Navigator');
+      await career.fill('Pending change');
+      await done.press('Enter');
+      const unsaved = page.getByRole('dialog', { name: 'Save changes?' });
+      await unsaved.getByRole('button', { name: 'Discard changes' }).press('Enter');
+      await expect(heading).toHaveCount(0);
+      await expect(edit).toBeFocused();
+      await article.getByRole('heading', { name: sheet.displayName }).focus();
     }
 
     if (capture) {
@@ -163,6 +171,9 @@ test('opens saved character and monster sheets and explains read-only and invali
       await article.getByRole('heading', { name: sheet.displayName }).focus();
     }
 
+    const saveLocation = page.getByRole('combobox', { name: 'Save location' });
+    await expect(saveLocation).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
     await page.keyboard.press('Shift+Tab');
     if (!readOnly) {
       await expect(edit).toBeFocused();
@@ -311,20 +322,13 @@ test('preserves the selected sheet and view action when the library picker is ca
     { library, invalidFolder: profile.root },
   );
 
-  const libraryPanel = page.getByRole('region', { name: 'Game library' });
-  const picker = libraryPanel.getByRole('button', { name: 'Choose library folder' });
-  const load = libraryPanel.getByRole('button', { name: 'Load system' });
+  const { region: libraryPanel, chooseFolder: picker, loadSystem: load } = gameLibrary(page);
   await picker.click();
-  await libraryPanel
-    .getByRole('combobox', { name: 'Game system' })
-    .selectOption(authored.system.id);
-  await load.click();
+  await loadLibrarySystem(page, authored.system.id);
 
-  const loading = page.getByRole('region', { name: 'Load a saved sheet' });
-  const sheets = loading.getByRole('combobox', { name: 'Saved sheet' });
-  const view = loading.getByRole('button', { name: 'View sheet' });
+  const { sheets, loadSheet, viewSheet: view } = savedSheetNavigation(page);
   await sheets.selectOption(sheet.id);
-  await loading.getByRole('button', { name: 'Load sheet', exact: true }).click();
+  await loadSheet.click();
   await expect(view).toBeVisible();
 
   await picker.click();
@@ -372,18 +376,13 @@ test('returns focus to Choose library folder after cancellation following a fail
     };
   }, library);
 
-  const libraryPanel = page.getByRole('region', { name: 'Game library' });
-  const picker = libraryPanel.getByRole('button', { name: 'Choose library folder' });
+  const { region: libraryPanel, chooseFolder: picker } = gameLibrary(page);
   await picker.press('Enter');
-  await libraryPanel
-    .getByRole('combobox', { name: 'Game system' })
-    .selectOption(authored.system.id);
-  await libraryPanel.getByRole('button', { name: 'Load system' }).press('Enter');
+  await loadLibrarySystem(page, authored.system.id);
 
-  const loading = page.getByRole('region', { name: 'Load a saved sheet' });
-  const sheets = loading.getByRole('combobox', { name: 'Saved sheet' });
+  const { region: loading, sheets, loadSheet } = savedSheetNavigation(page);
   await sheets.selectOption('invalid');
-  await loading.getByRole('button', { name: 'Load sheet', exact: true }).press('Enter');
+  await loadSheet.press('Enter');
   await expect(loading.getByRole('alert')).toContainText('invalid.json');
   await expect(sheets).toBeFocused();
 

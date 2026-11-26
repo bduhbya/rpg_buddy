@@ -54,6 +54,7 @@ export function SheetCreationPanel({
   const sheet = created?.sheet;
   const [successMessage, setSuccessMessage] = useState('');
   const form = useRef<HTMLFormElement>(null);
+  const lastViewedToken = useRef<string>(undefined);
   const viewButton = useRef<HTMLButtonElement>(null);
 
   // Main invalidates edit handles when the active selection revision changes.
@@ -192,9 +193,12 @@ export function SheetCreationPanel({
                 type="button"
                 onClick={(event) => {
                   if (!created) return;
+                  const startEditing = lastViewedToken.current !== created.editHandle.token;
+                  lastViewedToken.current = created.editHandle.token;
                   viewSheet(
                     {
                       ...created,
+                      startEditing,
                       onEdit: (result) => setCreated({ ...created, ...result }),
                     },
                     event.currentTarget,

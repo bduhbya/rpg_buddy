@@ -11,6 +11,7 @@ type OpenedSheet = Extract<SheetLoadingResult, { ok: true; action: 'open' }>;
 
 interface SheetLoadingPanelProps {
   selectionRevision: number;
+  savedSheetsRevision: number;
   busy: boolean;
   opening: boolean;
   viewSheet: ViewSheet;
@@ -32,6 +33,7 @@ function formatDiagnostic({ document, pointer, message }: Diagnostic): string {
  */
 export function SheetLoadingPanel({
   selectionRevision,
+  savedSheetsRevision,
   busy,
   opening,
   listSheets,
@@ -80,7 +82,7 @@ export function SheetLoadingPanel({
     return () => {
       current = false;
     };
-  }, [selectionRevision, role, retry, listSheets]);
+  }, [selectionRevision, savedSheetsRevision, role, retry, listSheets]);
 
   // Focus the available sheet action after a successful open.
   useEffect(() => {

@@ -112,7 +112,8 @@ button[aria-disabled='true'] {
 }
 
 .sheet-page__actions,
-.sheet-page__edit-buttons {
+.sheet-page__edit-buttons,
+.sheet-page__save-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -132,8 +133,42 @@ button[aria-disabled='true'] {
   border-bottom: 1px solid #cbc2b4;
 }
 
-.sheet-page__edit-buttons button {
-  padding-inline: 0.6em;
+.sheet-page__actions button,
+.sheet-page__unsaved-dialog button {
+  padding: 0.35em 0.65em;
+  border: 1px solid #8a8175;
+  border-radius: 0.45rem;
+}
+
+.sheet-page__unsaved-dialog {
+  max-inline-size: min(27rem, calc(100% - 2rem));
+  padding: 1rem 1.25rem;
+  border: 1px solid #8a8175;
+  border-radius: 0.75rem;
+  color: inherit;
+  background: #fffdf8;
+}
+
+.sheet-page__unsaved-dialog h2 {
+  margin: 0;
+}
+
+.sheet-page__unsaved-dialog::backdrop {
+  background: #252d3266;
+}
+
+.sheet-page__save-controls {
+  align-items: center;
+  min-width: 0;
+}
+
+.sheet-page__save-controls select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sheet-page__actions--sticky .sheet-page__save-controls {
+  margin-block-start: 0.5rem;
 }
 
 .sheet-page__edit-feedback {

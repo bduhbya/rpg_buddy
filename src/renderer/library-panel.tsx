@@ -19,7 +19,13 @@ const libraryLog = createRendererWorkflowLog('library.request');
  * @param props The callback for viewing a workflow result.
  * @returns The library controls displayed in the desktop shell.
  */
-export function LibraryPanel({ viewSheet }: { viewSheet: ViewSheet }) {
+export function LibraryPanel({
+  viewSheet,
+  savedSheetsRevision,
+}: {
+  viewSheet: ViewSheet;
+  savedSheetsRevision: number;
+}) {
   const [view, setView] = useState<LibraryView>();
   const [candidate, setCandidate] = useState('');
   const [status, setStatus] = useState('Checking the remembered library…');
@@ -247,6 +253,7 @@ export function LibraryPanel({ viewSheet }: { viewSheet: ViewSheet }) {
       {view?.activeSystem && (
         <SheetLoadingPanel
           selectionRevision={view.activeSystem.selectionRevision}
+          savedSheetsRevision={savedSheetsRevision}
           busy={busy !== undefined}
           opening={busy === 'open'}
           listSheets={listSheets}

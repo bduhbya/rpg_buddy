@@ -1,13 +1,31 @@
 import { readRuntimeDefinitions } from '../../fixtures/rogue-trader-definitions';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { cp, mkdir, mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { LibrarySelection } from '../../../src/main/library-selection';
 import { createSheetCreationHandlers } from '../../../src/main/sheet-creation-ipc';
+import { archivedSystemManifestPath } from '../../../src/main/library-paths';
+import { createSheetLoadingWorkflow } from '../../../src/main/sheet-loading-workflow';
+import { saveInstance } from '../../../src/main/instance-saver';
+import { createSheetSavingHandler } from '../../../src/main/sheet-saving';
 import { createSheetWorkflow } from '../../../src/main/sheet-creation-workflow';
-import { createSheetEditing, createSheetEditingHandler } from '../../../src/main/sheet-editing';
+import {
+  createSheetEditing,
+  createSheetEditingHandler,
+  createSheetEditPreviewHandler,
+} from '../../../src/main/sheet-editing';
 import { validateInstanceSnapshot } from '../../../src/domain/instances/validate-instance-snapshot';
 import { noopLogger } from '../../../src/shared/logging-contract';
 import type { LogInput } from '../../../src/shared/logging-contract';
@@ -64,6 +82,21 @@ it('authorizes one revisioned edit at a time and preserves state when an edit fa
     record: (entry) => records.push(entry),
   });
   const apply = { ...created.editHandle, operation: ['set-value', 'strength', 43] };
+  const preview = createSheetEditPreviewHandler(() => owner, url, editing.preview, {
+    record: (entry) => records.push(entry),
+  });
+  const previewRequest = { ...created.editHandle, operations: [apply.operation] };
+  expect(preview({ ...event, senderFrame: { url } } as IpcMainInvokeEvent, previewRequest)).toEqual(
+    {
+      ok: false,
+      code: 'FORBIDDEN',
+    },
+  );
+  expect(preview(event, { ...previewRequest, operations: [['discard-changes']] })).toEqual({
+    ok: false,
+    code: 'INVALID_REQUEST',
+  });
+  expect(preview(event, previewRequest)).toEqual({ ok: true, hasChanges: true });
   expect(handle({ ...event, senderFrame: { url } } as IpcMainInvokeEvent, apply)).toEqual({
     ok: false,
     code: 'FORBIDDEN',
@@ -96,6 +129,7 @@ it('authorizes one revisioned edit at a time and preserves state when an edit fa
   });
   expect(created.sheet).toMatchObject({ values: { strength: 0 }, derived: { strengthBonus: 0 } });
   expect(handle(event, apply)).toEqual({ ok: false, code: 'STALE_SHEET' });
+  expect(preview(event, previewRequest)).toEqual({ ok: false, code: 'STALE_SHEET' });
   const next = await workflow.createCharacterSheet({ ...request, id: 'replacement' });
   if (!next.ok) throw new Error(next.message);
   expect(handle(event, { ...apply, revision: 1 })).toEqual({ ok: false, code: 'STALE_SHEET' });
@@ -324,3 +358,169 @@ it('authorizes creation IPC and rejects malformed requests without dispatching',
   expect(records).toHaveLength(0);
   expect(await handlers.handleCreateCharacterSheet(trusted, request)).toMatchObject({ ok: true });
 });
+
+it.each([
+  ['character', 'characters'],
+  ['monster', 'monsters'],
+] as const)(
+  'saves only the authorized %s revision to its library destination',
+  async (role, directory) => {
+    const created = await workflow.createCharacterSheet({ ...request, role });
+    if (!created.ok) throw new Error(created.message);
+    const { editHandle, sheet } = created;
+    const url = 'file:///application/index.html';
+    const frame = { url };
+    const owner = {
+      isDestroyed: () => false,
+      getURL: () => url,
+      mainFrame: frame,
+    } as unknown as WebContents;
+    const event = { sender: owner, senderFrame: frame } as IpcMainInvokeEvent;
+    const handle = createSheetSavingHandler(() => owner, url, editing, {
+      record: (entry) => records.push(entry),
+    });
+    const list = { ...editHandle, action: 'list' };
+    const save = { ...editHandle, action: 'save', destinationId: directory };
+    const target = path.join(system, directory, sheet.id + '.json');
+
+    await expect(
+      handle({ ...event, senderFrame: { url } } as IpcMainInvokeEvent, list),
+    ).resolves.toEqual({
+      ok: false,
+      code: 'FORBIDDEN',
+    });
+    for (const badRequest of [
+      { ...save, sheet },
+      { ...save, destinationId: '../escape' },
+      { ...list, revision: -1 },
+    ]) {
+      await expect(handle(event, badRequest)).resolves.toEqual({
+        ok: false,
+        code: 'INVALID_REQUEST',
+      });
+    }
+    const otherDirectory = role === 'character' ? 'monsters' : 'characters';
+    await expect(handle(event, { ...save, destinationId: otherDirectory })).resolves.toEqual({
+      ok: false,
+      code: 'INVALID_DESTINATION',
+    });
+    await expect(handle(event, list)).resolves.toEqual({
+      ok: true,
+      action: 'list',
+      hasSaved: false,
+      destinations: [
+        {
+          id: directory,
+          label: expect.stringContaining(role === 'character' ? 'Characters' : 'Monsters'),
+        },
+      ],
+    });
+
+    const firstSave = handle(event, save);
+    await expect(handle(event, save)).resolves.toEqual({ ok: false, code: 'BUSY' });
+    await expect(firstSave).resolves.toEqual({ ok: true, action: 'save' });
+    await expect(handle(event, list)).resolves.toMatchObject({ ok: true, hasSaved: true });
+    const original = await readFile(target, 'utf8');
+    expect(JSON.parse(original)).toEqual(sheet);
+
+    const context = selection.getCreationContext();
+    if (!context) throw new Error('Fixture system failed to load');
+    const load = createSheetLoadingWorkflow(selection, noopLogger, editing);
+    const open = {
+      action: 'open',
+      id: sheet.id,
+      role,
+      selectionRevision: context.revision,
+    } as const;
+    const opened = await load(open);
+    if (!opened.ok || opened.action !== 'open' || opened.mode !== 'editable') {
+      throw new Error('Expected an editable sheet');
+    }
+    const edited = editing.apply({ ...editHandle, operation: ['set-value', 'strength', 43] });
+    if (!edited.ok) throw new Error(edited.code);
+    await expect(handle(event, save)).resolves.toEqual({ ok: false, code: 'STALE_SHEET' });
+
+    const overwrite = { ...save, ...edited.editHandle };
+    await writeFile(target + '.lock', '');
+    await expect(handle(event, overwrite)).resolves.toMatchObject({
+      ok: false,
+      diagnostics: [{ message: expect.stringContaining('recovery') }],
+    });
+    expect(await readFile(target, 'utf8')).toBe(original);
+    await rm(target + '.lock');
+    await expect(handle(event, overwrite)).resolves.toEqual({ ok: true, action: 'save' });
+    expect(JSON.parse(await readFile(target, 'utf8'))).toEqual(edited.sheet);
+    expect(await readFile(target + '.bak', 'utf8')).toBe(original);
+
+    const updated = await readFile(target, 'utf8');
+    const retimestamped = { ...edited.sheet, modifiedAt: '2099-01-01T00:00:00.000Z' };
+    await expect(saveInstance(library, retimestamped, noopLogger, edited.sheet)).resolves.toEqual({
+      success: true,
+      value: edited.sheet,
+    });
+    await expect(handle(event, overwrite)).resolves.toEqual({ ok: true, action: 'save' });
+    expect(await readFile(target, 'utf8')).toBe(updated);
+    expect(await readFile(target + '.bak', 'utf8')).toBe(original);
+
+    await expect(handle(event, { ...save, ...opened.editHandle })).resolves.toMatchObject({
+      ok: false,
+      code: 'SAVE_CONFLICT',
+      diagnostics: [{ message: expect.stringContaining('Reopen') }],
+    });
+    expect(JSON.parse(await readFile(target, 'utf8'))).toEqual(edited.sheet);
+    expect(await readFile(target + '.bak', 'utf8')).toBe(original);
+    const reopened = await load(open);
+    if (!reopened.ok || reopened.action !== 'open' || reopened.mode !== 'editable') {
+      throw new Error('Expected an editable sheet');
+    }
+    expect(reopened.sheet).toEqual(edited.sheet);
+    const renamed = editing.apply({
+      ...reopened.editHandle,
+      operation: ['set-display-name', 'Renamed sheet'],
+    });
+    if (!renamed.ok) throw new Error(renamed.code);
+    await expect(handle(event, { ...save, ...renamed.editHandle })).resolves.toEqual({
+      ok: true,
+      action: 'save',
+    });
+    expect(JSON.parse(await readFile(target, 'utf8'))).toEqual(renamed.sheet);
+
+    const archive = path.join(library, archivedSystemManifestPath(sheet.system));
+    await rename(archive, archive + '.away');
+    const readOnly = await load(open);
+    expect(readOnly).toMatchObject({
+      ok: true,
+      action: 'open',
+      mode: 'read-only',
+      sheet: renamed.sheet,
+    });
+    expect(readOnly).not.toHaveProperty('editHandle');
+    await expect(handle(event, { ...save, ...renamed.editHandle })).resolves.toEqual({
+      ok: false,
+      code: 'STALE_SHEET',
+    });
+    await rename(archive + '.away', archive);
+    await expect(handle(event, { ...save, ...opened.editHandle })).resolves.toEqual({
+      ok: false,
+      code: 'STALE_SHEET',
+    });
+    await selection.selectSystem('rogue-trader');
+    await expect(handle(event, overwrite)).resolves.toEqual({ ok: false, code: 'STALE_SHEET' });
+
+    const saveRecords = records.filter(({ event }) => event === 'instance.save');
+    expect(saveRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ step: 'destination.list', outcome: 'succeeded' }),
+        expect.objectContaining({ step: 'sheet.save', outcome: 'succeeded' }),
+        expect.objectContaining({ step: 'destination.check', reason: 'INVALID_DESTINATION' }),
+        expect.objectContaining({ step: 'sheet.save', outcome: 'unchanged' }),
+        expect.objectContaining({ reason: 'SAVE_LOCKED', outcome: 'rejected' }),
+        expect.objectContaining({ reason: 'SAVE_CONFLICT', outcome: 'rejected' }),
+      ]),
+    );
+    const logged = JSON.stringify(saveRecords);
+    for (const privateValue of [sheet.id, sheet.displayName, editHandle.token, library]) {
+      expect(logged).not.toContain(privateValue);
+    }
+  },
+);
