@@ -8,6 +8,8 @@ import {
 import type { RogueTraderRulebookEntryId } from '../shared/rogue-trader-rulebook-entries';
 import type { SheetEditOperation } from '../shared/sheet-editing-contract';
 
+const LEADING_ZERO_PATTERN = /^([+-]?)0+(?=[0-9])/;
+
 export interface SheetDraft {
   label: string;
   focusId: string;
@@ -49,13 +51,13 @@ export function SheetValueEditor({ editor, field, label, value, toOperation }: V
         inputMode={typeof value === 'number' ? 'decimal' : undefined}
         value={draft?.text ?? String(value)}
         readOnly={editor.busy}
-        onChange={({ target: { value: text } }) => {
-          editor.setDraft(
-            field,
-            text === String(value)
-              ? undefined
-              : { label, focusId: id, text, operation: toOperation(text) },
-          );
+        onChange={({ target: { value: input } }) => {
+          const text =
+            typeof value === 'number' ? input.trim().replace(LEADING_ZERO_PATTERN, '$1') : input;
+          const operation = toOperation(text);
+          const unchanged =
+            text === String(value) || (operation?.[0] === 'set-value' && operation[2] === value);
+          editor.setDraft(field, unchanged ? undefined : { label, focusId: id, text, operation });
         }}
       />
     </div>

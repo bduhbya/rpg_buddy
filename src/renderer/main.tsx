@@ -20,6 +20,7 @@ interface ActiveSheetView extends SheetView {
 // Render application information and the support diagnostic action.
 function App() {
   const [sheetView, setSheetView] = useState<ActiveSheetView>();
+  const [savedSheetsRevision, setSavedSheetsRevision] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
   const returning = useRef<ActiveSheetView>(null);
 
@@ -106,7 +107,7 @@ function App() {
         <h1>RPG Buddy</h1>
         <p className="message">RPG Buddy is ready.</p>
         <p>A home for your characters and adventures, for players and game masters.</p>
-        <LibraryPanel viewSheet={viewSheet} />
+        <LibraryPanel viewSheet={viewSheet} savedSheetsRevision={savedSheetsRevision} />
         <section aria-labelledby="application-info-heading">
           <h2 id="application-info-heading">Application information</h2>
           {!result && <p role="status">Loading application information…</p>}
@@ -137,7 +138,14 @@ function App() {
           <p role="status">{diagnostic}</p>
         </section>
       </main>
-      {sheetView && <EditableSheet view={sheetView} heading={heading} back={returnToMain} />}
+      {sheetView && (
+        <EditableSheet
+          view={sheetView}
+          heading={heading}
+          back={returnToMain}
+          onSaved={() => setSavedSheetsRevision((revision) => revision + 1)}
+        />
+      )}
     </>
   );
 }

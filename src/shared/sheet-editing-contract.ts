@@ -6,6 +6,8 @@ import { isRogueTraderRulebookEntryId } from './rogue-trader-rulebook-entries';
 import type { RogueTraderRulebookEntryId } from './rogue-trader-rulebook-entries';
 
 export const SHEET_EDITING_CHANNEL = 'sheet-editing:apply';
+export const SHEET_EDIT_PREVIEW_CHANNEL = 'sheet-editing:preview';
+const MAX_PREVIEW_OPERATIONS = 128;
 
 export interface SheetEditHandle {
   token: string;
@@ -14,11 +16,20 @@ export interface SheetEditHandle {
 
 export type SheetEditOperation =
   | Exclude<InstanceEditOperation, ['add-entry' | 'replace-entry', string]>
+  | [operation: 'discard-changes']
   | [operation: 'add-rulebook-entry', entryId: RogueTraderRulebookEntryId];
 
 export interface SheetEditRequest extends SheetEditHandle {
   operation: SheetEditOperation;
 }
+
+export interface SheetEditPreviewRequest extends SheetEditHandle {
+  operations: Exclude<SheetEditOperation, ['discard-changes']>[];
+}
+
+export type SheetEditPreviewResult =
+  | { ok: true; hasChanges: boolean }
+  | { ok: false; code: 'FORBIDDEN' | 'INVALID_REQUEST' | 'STALE_SHEET' | 'UNAVAILABLE' };
 
 export type SheetEditResult =
   | { ok: true; sheet: Instance; editHandle: SheetEditHandle }
@@ -33,6 +44,8 @@ function isOperation(value: unknown): value is SheetEditOperation {
   if (!Array.isArray(value)) return false;
   const [action, argument, fieldValue] = value;
   switch (action) {
+    case 'discard-changes':
+      return value.length === 1;
     case 'set-value':
       return value.length === 3 && typeof argument === 'string' && Number.isFinite(fieldValue);
     case 'set-career':
@@ -47,6 +60,38 @@ function isOperation(value: unknown): value is SheetEditOperation {
   }
 }
 
+// Verify the common edit capability fields before inspecting either request payload.
+function isEditHandle(value: unknown): value is Record<string, unknown> & SheetEditHandle {
+  return (
+    isRecord(value) &&
+    Object.hasOwn(value, 'token') &&
+    Object.hasOwn(value, 'revision') &&
+    isOperationId(value.token) &&
+    typeof value.revision === 'number' &&
+    Number.isSafeInteger(value.revision) &&
+    value.revision >= 0
+  );
+}
+
+/**
+ * Validate a bounded sequence of pending operations for an authorized preview.
+ * @param value Candidate IPC payload.
+ * @returns Whether it contains a valid capability and editable operations.
+ */
+export function isSheetEditPreviewRequest(value: unknown): value is SheetEditPreviewRequest {
+  return (
+    isEditHandle(value) &&
+    Object.keys(value).length === 3 &&
+    Object.hasOwn(value, 'operations') &&
+    Array.isArray(value.operations) &&
+    value.operations.length > 0 &&
+    value.operations.length <= MAX_PREVIEW_OPERATIONS &&
+    Array.from(value.operations).every(
+      (operation) => isOperation(operation) && operation[0] !== 'discard-changes',
+    )
+  );
+}
+
 /**
  * Check an untrusted edit request before it reaches the domain.
  * @param value Candidate IPC payload.
@@ -54,15 +99,9 @@ function isOperation(value: unknown): value is SheetEditOperation {
  */
 export function isSheetEditRequest(value: unknown): value is SheetEditRequest {
   return (
-    isRecord(value) &&
+    isEditHandle(value) &&
     Object.keys(value).length === 3 &&
-    Object.hasOwn(value, 'token') &&
-    Object.hasOwn(value, 'revision') &&
     Object.hasOwn(value, 'operation') &&
-    isOperationId(value.token) &&
-    typeof value.revision === 'number' &&
-    Number.isSafeInteger(value.revision) &&
-    value.revision >= 0 &&
     isOperation(value.operation)
   );
 }

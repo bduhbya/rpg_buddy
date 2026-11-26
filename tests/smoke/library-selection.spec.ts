@@ -2,6 +2,7 @@ import { expect, _electron as electron } from '@playwright/test';
 import { cp, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from './fixtures/desktop-shell';
+import { gameLibrary } from './fixtures/navigation';
 
 test('keyboard controls choose a library, preserve cancellation, and recover from a bad system', async ({
   shell,
@@ -25,10 +26,7 @@ test('keyboard controls choose a library, preserve cancellation, and recover fro
     };
   }, library);
 
-  const panel = page.getByRole('region', { name: 'Game library' });
-  const picker = panel.getByRole('button', { name: 'Choose library folder' });
-  const system = panel.getByRole('combobox', { name: 'Game system' });
-  const load = panel.getByRole('button', { name: 'Load system' });
+  const { region: panel, chooseFolder: picker, system, loadSystem: load } = gameLibrary(page);
   await picker.focus();
   await page.keyboard.press('Enter');
   await expect(panel.getByRole('status')).toHaveText('Library folder selected.');
@@ -135,8 +133,7 @@ test('relaunch restores the library folder and starts without a selected system'
     profile.track(application.process());
     try {
       const page = await application.firstWindow();
-      const panel = page.getByRole('region', { name: 'Game library' });
-      const system = panel.getByRole('combobox', { name: 'Game system' });
+      const { region: panel, system, loadSystem } = gameLibrary(page);
       await expect(
         panel.getByText(`Library folder: ${await realpath(library)}`, { exact: true }),
       ).toBeVisible();
@@ -144,7 +141,7 @@ test('relaunch restores the library folder and starts without a selected system'
       await expect(panel.getByText(/^Active system:/)).toHaveCount(0);
       if (launch === 'initial') {
         await system.selectOption('rogue-trader');
-        await panel.getByRole('button', { name: 'Load system' }).click();
+        await loadSystem.click();
         await expect(panel.getByText(/^Active system: Rogue Trader/)).toBeVisible();
       }
     } finally {
@@ -174,9 +171,8 @@ for (const pickerOutcome of ['none', 'cancelled', 'rejected'] as const) {
       { folder: library, outcome: pickerOutcome, invalidFolder: profile.root },
     );
 
-    const panel = page.getByRole('region', { name: 'Game library' });
-    await panel.getByRole('button', { name: 'Choose library folder' }).click();
-    const system = panel.getByRole('combobox', { name: 'Game system' });
+    const { region: panel, chooseFolder: picker, system, loadSystem } = gameLibrary(page);
+    await picker.click();
     await system.selectOption('rogue-trader');
 
     const manifest = path.join(
@@ -205,7 +201,7 @@ for (const pickerOutcome of ['none', 'cancelled', 'rejected'] as const) {
     }, manifest);
 
     try {
-      await panel.getByRole('button', { name: 'Load system' }).click();
+      await loadSystem.click();
       await expect
         .poll(() =>
           application.evaluate(() => Reflect.get(globalThis, 'libraryReloadReadGate').reached),
@@ -219,7 +215,6 @@ for (const pickerOutcome of ['none', 'cancelled', 'rejected'] as const) {
           .getByText('Electron', { exact: true }),
       ).toBeVisible();
       if (pickerOutcome !== 'none') {
-        const picker = panel.getByRole('button', { name: 'Choose library folder' });
         await picker.click();
         if (pickerOutcome === 'cancelled') {
           await expect(panel.getByRole('status')).toHaveText('Folder selection cancelled.');

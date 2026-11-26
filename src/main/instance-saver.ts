@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, open, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import type { DiagnosticCode } from '../domain/definitions/diagnostics';
 import type { Instance } from '../domain/definitions/document-models';
 import { parseStrictJson } from '../domain/definitions/strict-json';
 import { checkInstanceTemplate } from '../domain/instances/check-instance-template';
 import type { ValidationResult } from '../domain/instances/structural-validation';
+import { sameInstanceContent } from '../domain/instances/same-instance-content';
 import { validateInstanceSnapshot } from '../domain/instances/validate-instance-snapshot';
 import type { Logger } from '../shared/logging-contract';
 import { loadExactDefinitions } from './definition-loader';
@@ -75,12 +77,14 @@ function isPredecessor(previous: Instance, next: Instance): boolean {
  * @param libraryRootPath Absolute path to the selected library.
  * @param candidate A JSON-compatible snapshot, captured before the first asynchronous operation.
  * @param logger Shared main-process logger for checkpoints and the terminal outcome.
+ * @param expectedPredecessor Saved revision the caller started from, or null for a first save. Omit for an unconditional save of the same identity.
  * @returns The persisted snapshot or actionable diagnostics. Stored statistics are never evaluated.
  */
 export async function saveInstance(
   libraryRootPath: string,
   candidate: unknown,
   logger: Logger,
+  expectedPredecessor?: Instance | null,
 ): Promise<ValidationResult<Instance>> {
   const log = createMainWorkflowLog(logger, 'instance.save');
   let document = 'sheet to save';
@@ -170,6 +174,17 @@ export async function saveInstance(
       );
     }
 
+    if (primaryState === 'missing' && expectedPredecessor) {
+      return log.diagnosticFailure(
+        failure(
+          document,
+          'The saved sheet is missing. Restore it or reopen the library before retrying.',
+          'SAVE_CONFLICT',
+        ),
+        'predecessor.validate',
+      );
+    }
+
     let priorBytes: Uint8Array | undefined;
     if (primaryState === 'present') {
       // Verify the existing file belongs to this sheet and keep its original bytes for rollback.
@@ -184,15 +199,31 @@ export async function saveInstance(
           step,
         );
       }
-      // TODO: Revisit stale saves when wiring the desktop save flow. Two open copies can save
-      // in sequence, letting an older snapshot replace a newer primary. Prefer a single running
-      // app instance, and check whether it can still hold multiple editable copies of one sheet.
+      // Compare the caller's baseline under the same lock used to publish the replacement.
+      if (
+        expectedPredecessor !== undefined &&
+        !isDeepStrictEqual(previous.value, expectedPredecessor)
+      ) {
+        return log.diagnosticFailure(
+          failure(
+            document,
+            'The saved sheet has changed. Reopen it before saving again.',
+            'SAVE_CONFLICT',
+          ),
+          step,
+        );
+      }
       const priorCompatibility = checkInstanceTemplate(
         previous.value,
         definitions.value.template.value,
         document,
       );
       if (!priorCompatibility.success) return log.diagnosticFailure(priorCompatibility, step);
+      // An unchanged save must leave both the primary and the prior recovery revision intact.
+      if (sameInstanceContent(previous.value, sheet)) {
+        log.outcome({ step: 'sheet.save', outcome: 'unchanged', level: 'info' });
+        return { success: true, value: previous.value };
+      }
       priorBytes = prior.value.bytes;
     }
 

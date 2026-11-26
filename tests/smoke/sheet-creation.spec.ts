@@ -3,6 +3,7 @@ import { expect } from '@playwright/test';
 import { cp, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from './fixtures/desktop-shell';
+import { gameLibrary, openLibrarySystem } from './fixtures/navigation';
 
 test('creates both roles by keyboard and keeps selection steady during submission', async ({
   shell,
@@ -17,17 +18,8 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   await mkdir(characters, { recursive: true });
   await writeFile(path.join(characters, 'elodie.json'), '{}');
 
-  // Replace the native picker only, leaving the creation bridge and filesystem inspection live.
-  await application.evaluate(({ dialog }, folder) => {
-    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] });
-  }, library);
-
-  const picker = page.getByRole('button', { name: 'Choose library folder' });
-  const system = page.getByRole('combobox', { name: 'Game system' });
-  const load = page.getByRole('button', { name: 'Load system' });
-  await picker.press('Enter');
-  await system.press('End');
-  await load.press('Enter');
+  await openLibrarySystem(page, application, library, 'rogue-trader');
+  const { chooseFolder: picker, system, loadSystem: load } = gameLibrary(page);
 
   const panel = page.getByRole('region', { name: 'Create a sheet' });
   const template = panel.getByRole('combobox', { name: 'Template' });
@@ -90,6 +82,9 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   await view.press('Enter');
   await expect(panel).toBeHidden();
   await expect(character.getByRole('heading', { name: 'Élodie' })).toBeFocused();
+  const done = page.getByRole('button', { name: 'Done', exact: true });
+  await expect(done).toBeVisible();
+  await done.press('Enter');
   await expect(character.getByText('captain-elodie')).toBeVisible();
   await expect(character.getByText('Character', { exact: true })).toBeVisible();
   await expect(character.getByText('Strength', { exact: true }).locator('..')).toHaveText(
@@ -99,7 +94,10 @@ test('creates both roles by keyboard and keeps selection steady during submissio
     character.getByTitle('Strength Bonus', { exact: true }).locator('xpath=../..'),
   ).toHaveText('SB0');
 
-  await page.keyboard.press('Shift+Tab');
+  const save = page.getByRole('button', { name: 'Save', exact: true });
+  const saveLocation = page.getByRole('combobox', { name: 'Save location' });
+  await expect(saveLocation).toHaveCount(0);
+  await expect(save).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(back).toBeFocused();
@@ -125,6 +123,7 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   await expect(monster.getByText('void-beast')).toBeVisible();
   await expect(monster.getByText('Monster', { exact: true })).toBeVisible();
   await expect(monster.getByRole('heading', { name: 'Movement' })).toBeVisible();
+  await done.press('Enter');
   await back.press('Enter');
   await expect(view).toBeFocused();
   await expect(role).toHaveValue('monster');
@@ -133,7 +132,6 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   // Verify that Apply and Done submit shared drafts from the sheet's edit bar.
   await view.press('Enter');
   const edit = page.getByRole('button', { name: 'Edit', exact: true });
-  const done = page.getByRole('button', { name: 'Done', exact: true });
   const actions = page.getByRole('group', { name: 'Sheet editing actions' });
   const apply = actions.getByRole('button', { name: 'Apply edits' });
   const discard = actions.getByRole('button', { name: 'Discard edits' });
@@ -163,7 +161,7 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   );
   await monster.getByRole('group', { name: 'Add rulebook entries' }).scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-  for (const button of [done, apply, discard]) {
+  for (const button of [done, apply, discard, saveLocation, save]) {
     await expect(button).toBeInViewport({ ratio: 1 });
   }
   await page.setViewportSize(viewport);
@@ -207,7 +205,16 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   );
   await expect(pendingTrait).toContainText('printed p. 368');
   await expect(choices).toBeFocused();
+  const unsaved = page.getByRole('dialog', { name: 'Save changes?' });
+  const saveAndFinish = unsaved.getByRole('button', { name: 'Save and finish' });
   await done.press('Enter');
+  await expect(unsaved.getByRole('button', { name: 'Keep editing' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(unsaved).toBeHidden();
+  await expect(done).toBeFocused();
+  await done.press('Enter');
+  await expect(saveAndFinish).toBeEnabled();
+  await saveAndFinish.press('Enter');
   await expect(page.locator('#sheet-edit-error')).toContainText('Strength');
   await expect(strength).toBeFocused();
   await expect(
@@ -221,6 +228,7 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   await expect(movement).toHaveText(/Half Move4/);
   await strength.fill('45');
   await done.press('Enter');
+  await saveAndFinish.press('Enter');
   await expect(edit).toBeFocused();
   await expect(movement).toHaveText(/Half Move5/);
   await expect(
@@ -262,6 +270,7 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   await expect(agility).toHaveValue('55');
   await expect(done).toBeVisible();
   await done.click();
+  await saveAndFinish.press('Enter');
   await expect(movement).toHaveText(/Half Move5/);
   await expect(monster.getByText('Voidfarer', { exact: true })).toBeVisible();
   await back.press('Enter');

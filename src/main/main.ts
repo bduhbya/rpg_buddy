@@ -19,8 +19,17 @@ import { createSheetWorkflow } from './sheet-creation-workflow';
 import { SHEET_LOADING_CHANNEL } from '../shared/sheet-loading-contract';
 import { createSheetLoadingHandler } from './sheet-loading-ipc';
 import { createSheetLoadingWorkflow } from './sheet-loading-workflow';
-import { SHEET_EDITING_CHANNEL } from '../shared/sheet-editing-contract';
-import { createSheetEditing, createSheetEditingHandler } from './sheet-editing';
+import {
+  SHEET_EDITING_CHANNEL,
+  SHEET_EDIT_PREVIEW_CHANNEL,
+} from '../shared/sheet-editing-contract';
+import {
+  createSheetEditing,
+  createSheetEditingHandler,
+  createSheetEditPreviewHandler,
+} from './sheet-editing';
+import { SHEET_SAVING_CHANNEL } from '../shared/sheet-saving-contract';
+import { createSheetSavingHandler } from './sheet-saving';
 import { createMainWorkflowLog } from './workflow-log';
 
 const logging = new LogService({
@@ -85,6 +94,19 @@ ipcMain.handle(
     sheetEditing.apply,
     logging,
   ),
+);
+ipcMain.handle(
+  SHEET_EDIT_PREVIEW_CHANNEL,
+  createSheetEditPreviewHandler(
+    () => mainWindow?.webContents,
+    trustedDocument,
+    sheetEditing.preview,
+    logging,
+  ),
+);
+ipcMain.handle(
+  SHEET_SAVING_CHANNEL,
+  createSheetSavingHandler(() => mainWindow?.webContents, trustedDocument, sheetEditing, logging),
 );
 ipcMain.handle(
   LIBRARY_SELECTION_CHANNEL,

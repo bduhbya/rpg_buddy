@@ -4,6 +4,7 @@ import type { SheetEditHandle, SheetEditResult } from '../shared/sheet-editing-c
 export interface SheetView {
   sheet: Instance;
   readOnlyDetails?: string[];
+  startEditing?: boolean;
   editHandle?: SheetEditHandle;
   modifierTargets?: string[];
   onEdit?(result: Extract<SheetEditResult, { ok: true }>): void;

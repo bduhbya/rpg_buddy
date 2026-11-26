@@ -322,7 +322,8 @@ test('records correlated, sanitized terminal results even with a throwing sink',
   expect(await saveInstance(root, sheet, logger)).toMatchObject({ success: true });
   const success = events.splice(0);
   vi.mocked(fs.rename).mockRejectedValueOnce(new Error('private OS failure at ' + target));
-  expect(await saveInstance(root, sheet, logger)).toMatchObject({ success: false });
+  const edited = { ...sheet, displayName: 'Updated sheet' };
+  expect(await saveInstance(root, edited, logger)).toMatchObject({ success: false });
 
   const operationId = expect.any(String);
   expect(success.at(-1)).toMatchObject({
