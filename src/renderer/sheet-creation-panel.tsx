@@ -131,6 +131,14 @@ export function SheetCreationPanel({
     }
   }
 
+  // A name edit starts a new draft and releases the previous creation result.
+  function changeName(nextName: string) {
+    setName(nextName);
+    setCreated(undefined);
+    setSuccessMessage('');
+    lastViewedToken.current = undefined;
+  }
+
   return (
     <section aria-labelledby="sheet-creation-heading">
       <h2 id="sheet-creation-heading">Create a sheet</h2>
@@ -171,7 +179,7 @@ export function SheetCreationPanel({
               id="creation-name"
               required
               value={name}
-              onChange={(event) => setName(event.currentTarget.value)}
+              onChange={(event) => changeName(event.currentTarget.value)}
               aria-invalid={failure?.field === 'displayName'}
               aria-describedby={failure?.field === 'displayName' ? 'creation-error' : undefined}
             />
@@ -187,27 +195,26 @@ export function SheetCreationPanel({
             <button id="creation-submit" type="submit">
               Create sheet
             </button>
-            {sheet && (
-              <button
-                ref={viewButton}
-                type="button"
-                onClick={(event) => {
-                  if (!created) return;
-                  const startEditing = lastViewedToken.current !== created.editHandle.token;
-                  lastViewedToken.current = created.editHandle.token;
-                  viewSheet(
-                    {
-                      ...created,
-                      startEditing,
-                      onEdit: (result) => setCreated({ ...created, ...result }),
-                    },
-                    event.currentTarget,
-                  );
-                }}
-              >
-                View sheet
-              </button>
-            )}
+            <button
+              ref={viewButton}
+              type="button"
+              disabled={!created}
+              onClick={(event) => {
+                if (!created) return;
+                const startEditing = lastViewedToken.current !== created.editHandle.token;
+                lastViewedToken.current = created.editHandle.token;
+                viewSheet(
+                  {
+                    ...created,
+                    startEditing,
+                    onEdit: (result) => setCreated({ ...created, ...result }),
+                  },
+                  event.currentTarget,
+                );
+              }}
+            >
+              View sheet
+            </button>
           </fieldset>
         </form>
       )}

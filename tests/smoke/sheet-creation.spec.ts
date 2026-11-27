@@ -106,10 +106,15 @@ test('creates both roles by keyboard and keeps selection steady during submissio
   await expect(name).toHaveValue('Élodie');
   await expect(panel.getByRole('status')).toHaveText('Created Élodie.');
   await name.fill('Another captain');
+  await expect(view).toBeDisabled();
+  await expect(panel.getByRole('status')).toBeEmpty();
+  await name.fill('Élodie');
+  await expect(view).toBeDisabled();
+  await name.fill('Another captain');
   await id.press('Enter');
   await expect(panel.getByRole('alert')).toHaveText(/ID is already in use/);
   await expect(panel.getByRole('status')).toBeEmpty();
-  await expect(view).toBeVisible();
+  await expect(view).toBeDisabled();
 
   await role.press('End');
   await name.fill('Void Beast');
@@ -280,7 +285,7 @@ test('creates both roles by keyboard and keeps selection steady during submissio
 
   // Reloading the same system invalidates the prior creation result and its edit handle.
   await load.press('Enter');
-  await expect(view).toHaveCount(0);
+  await expect(view).toBeDisabled();
   await expect(template).toBeEnabled();
 
   const invalid = await page.evaluate(() => window.rpgBuddy.createCharacterSheet({} as never));
